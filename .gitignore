@@ -1,0 +1,7 @@
+# Personal inventory is user state, not repo content. example/ is the sample.
+/inventory.json
+/inventory.*.json
+
+__pycache__/
+*.py[cod]
+.venv/

@@ -1,0 +1,15 @@
+{
+  "schema_version": 0,
+  "id": "camera-trap",
+  "name": "Battery camera trap",
+  "description": "A motion- or schedule-triggered camera node that stores or uploads captures. Needs a board that can actually capture images, which is the usual thing a drawer turns out to lack.",
+  "difficulty": "intermediate",
+  "requires": [
+    { "capability": "camera_capture", "qty": 1, "note": "camera-capable board or module" },
+    { "capability": "sensor_read", "qty": 1, "note": "trigger sensor" },
+    { "part_id": "electronic/c-0603", "qty": 4, "note": "decoupling" }
+  ],
+  "related_designs": [
+    "ClawCam (node firmware, gateway and detection pipeline for exactly this)"
+  ]
+}

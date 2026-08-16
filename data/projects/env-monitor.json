@@ -1,0 +1,17 @@
+{
+  "schema_version": 0,
+  "id": "env-monitor",
+  "name": "Environmental monitor with local display",
+  "description": "A microcontroller reads temperature, humidity and pressure and shows them on a small OLED. The obvious first build for a drawer with an ESP32 and a BME280 in it.",
+  "difficulty": "beginner",
+  "requires": [
+    { "capability": "gpio", "qty": 1, "note": "host microcontroller" },
+    { "part_id": "electronic/bme280", "qty": 1, "note": "temperature/humidity/pressure" },
+    { "part_id": "electronic/ssd1306", "qty": 1, "note": "display" },
+    { "part_id": "electronic/r-0603", "qty": 2, "note": "I2C pull-ups, 4.7k" },
+    { "part_id": "electronic/c-0603", "qty": 2, "note": "decoupling, 100n" }
+  ],
+  "related_designs": [
+    "OpenCircuitCore boards/reference-esp32s3 (the sensor subcircuit is this project's electronics)"
+  ]
+}

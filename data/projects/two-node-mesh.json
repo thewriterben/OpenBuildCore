@@ -1,0 +1,15 @@
+{
+  "schema_version": 0,
+  "id": "two-node-mesh",
+  "name": "Two-node sensor mesh",
+  "description": "A remote sensing node and a base node. Deliberately requires two separate hosts: this is the case a presence-only matcher gets wrong, reporting success because one board satisfies both roles at once.",
+  "difficulty": "intermediate",
+  "requires": [
+    { "capability": "gpio", "qty": 2, "note": "two independent hosts" },
+    { "capability": "sensor_read", "qty": 1, "note": "the thing being sensed" },
+    { "capability": "lora", "qty": 2, "note": "long-range link, one radio per node" }
+  ],
+  "related_designs": [
+    "Oh-Ben-Claw fleet/LoRa node firmware"
+  ]
+}

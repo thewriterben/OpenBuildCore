@@ -1,0 +1,13 @@
+{
+  "schema_version": 0,
+  "owner": "example",
+  "note": "A plausible maker's drawer. Every part_id must exist in OpenPartsCore; the advisor refuses inventory it cannot resolve.",
+  "items": [
+    { "part_id": "boards/esp32-s3", "qty": 2, "note": "one on a breakout, one bare module" },
+    { "part_id": "boards/raspberry-pi-4", "qty": 1 },
+    { "part_id": "electronic/bme280", "qty": 1 },
+    { "part_id": "electronic/ssd1306", "qty": 1, "note": "128x64 OLED" },
+    { "part_id": "electronic/r-0603", "qty": 100 },
+    { "part_id": "electronic/c-0603", "qty": 100 }
+  ]
+}
