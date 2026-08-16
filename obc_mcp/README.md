@@ -24,10 +24,11 @@ Environment: `OBC_INVENTORY` (default `example/inventory.json`), `OBC_MACHINES` 
 | `shopping_list` | Gaps aggregated, with an explicit sequential/simultaneous basis |
 | `list_machines` | The machines the user owns, with envelope, materials and constraints |
 | `can_print` | Which machines can make a part this size, and what stops the others |
+| `can_print_design` | The same, for an OpenDesignCore design, read from its provenance record |
 
 ## Why everything executes
 
-OpenDesignCore ADR-0009 draws the line at the store boundary: effects confined to a peer's own content-addressed stores execute, anything reaching beyond stops at a proposal. Nothing here writes to a store, moves hardware, or reaches a fabricator — so all seven tools execute, and there is nothing to propose.
+OpenDesignCore ADR-0009 draws the line at the store boundary: effects confined to a peer's own content-addressed stores execute, anything reaching beyond stops at a proposal. Nothing here writes to a store, moves hardware, or reaches a fabricator — so all eight tools execute, and there is nothing to propose.
 
 **There is deliberately no tool that edits inventory or machines.** Both are the user's own record of physical objects. An agent quietly deciding you own three more resistors than you do would poison every answer downstream, and the error would only surface at the bench. The same applies to a build volume nobody measured.
 

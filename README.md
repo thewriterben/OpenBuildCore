@@ -70,6 +70,30 @@ Fit is tried in all six axis-aligned orientations and the one that works is
 named — a part that fails flat often fits stood on end. `machines.py list`
 shows what you own.
 
+### Judging an actual design, not a typed guess
+
+```
+python scripts/machines.py can-print --from-sidecar <run>.provenance.json --material petg
+```
+
+```
+Part from scan-cradle/0.1 artifact sha256:e8401edf6cd1 (odc/provenance/0.2)
+  39.6 x 51.6 x 7.03 mm, 9773.28 mm3, voxel 0.30 mm
+```
+
+Size and volume come from [OpenDesignCore](https://github.com/thewriterben/OpenDesignCore)'s
+provenance record (`artifact.bbox_mm`, `volume_cubic_mm` — its ADR-0010), so the
+verdict is about the geometry that will be printed, the time path gets a volume
+nobody typed, and the answer names the artifact hash it judged.
+
+**The peers meet at the provenance record, not at an API.** OpenBuildCore
+imports nothing from OpenDesignCore; it reads a file that already had to exist.
+
+A record too old to carry those fields is refused with its schema named, rather
+than falling back to the part *envelope* — that is the thing that goes inside
+the enclosure, not the thing that gets printed, and using it would be wrong by
+twice the clearance plus twice the wall while looking entirely plausible.
+
 ## How it works
 
 - **Inventory** (`example/inventory.json`) is a list of `part_id` + `qty`. Every id must exist in [OpenPartsCore](https://github.com/thewriterben/OpenPartsCore) — inventory that can't be resolved is refused rather than half-understood.

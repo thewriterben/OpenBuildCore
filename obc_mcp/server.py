@@ -178,6 +178,43 @@ def can_print(
     ]
 
 
+@server.tool()
+def can_print_design(
+    sidecar_path: str,
+    material: str = "",
+    min_feature_mm: float = 0.0,
+) -> dict:
+    """Judge an OpenDesignCore design against the user's machines.
+
+    `sidecar_path` points at a `.provenance.json` record. Size and volume come
+    from the record's `artifact.bbox_mm` and `volume_cubic_mm`, so the answer
+    is about the geometry that will actually be printed and can name the
+    artifact hash it judged.
+
+    A record too old to carry those fields is refused with its schema named,
+    rather than falling back to the part envelope - which is the thing that
+    goes *inside* the enclosure, not the thing that gets printed, and would be
+    wrong by twice the clearance plus twice the wall while looking plausible.
+
+    Material is not read from the record: OpenDesignCore designs geometry and
+    does not know what it will be printed in.
+    """
+    source = machines_lib.load_sidecar(Path(sidecar_path))
+    return {
+        "source": source,
+        "machines": [
+            machines_lib.evaluate(
+                machine,
+                source["size_mm"],
+                material or None,
+                min_feature_mm or None,
+                source["volume_mm3"],
+            )
+            for machine in _machines()
+        ],
+    }
+
+
 def main() -> None:
     server.run()
 
