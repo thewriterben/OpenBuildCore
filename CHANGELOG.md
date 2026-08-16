@@ -10,3 +10,5 @@
 - `shopping-list` command: gaps across projects aggregated into one buyable list, sorted by how many projects each item unlocks. Quantity basis is **explicit** (ADR-0004) — sequential by default (parts reused between builds, quantity = max shortfall), `--simultaneous` to sum. On the seed catalogue that is 2 vs 3 LoRa radios. `--for a,b` narrows to chosen projects; `--json` carries the basis so a consumer never infers it.
 - Fourth seed project `lora-relay`, chosen so the sequential/simultaneous difference is visible rather than theoretical.
 - 12 tests (up from 8), including all four shopping-list behaviours.
+- obc_mcp: stdio MCP surface exposing inventory, list_projects, what_can_i_build, gaps and shopping_list. All five execute - nothing here writes to a store or reaches a fabricator (OpenDesignCore ADR-0009). Deliberately no tool edits inventory: an agent quietly changing what you own would poison every answer downstream. Verified connected against a real MCP client.
+- Written against MCP Python SDK 2.x, where MCPServer replaced FastMCP; mcp.server.fastmcp no longer exists. Package named obc_mcp so it cannot shadow the SDK.
