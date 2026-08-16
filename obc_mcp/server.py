@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import advisor  # noqa: E402
+import machines as machines_lib  # noqa: E402
 
 try:
     # SDK 2.x. `mcp.server.fastmcp` was the 1.x entry point and no longer
@@ -130,6 +131,51 @@ def shopping_list(project_ids: str = "", simultaneous: bool = False) -> dict:
         "basis": "simultaneous" if simultaneous else "sequential",
         "items": advisor.shopping_list(results, simultaneous),
     }
+
+
+def _machines():
+    path = Path(os.getenv("OBC_MACHINES", str(machines_lib.DEFAULT_MACHINES)))
+    return machines_lib.load_machines(path)
+
+
+@server.tool()
+def list_machines() -> list:
+    """The machines the user owns, with envelope, materials and constraints.
+
+    Read-only, like inventory: an agent inventing a build volume it did not
+    measure is the same failure as inventing a component you do not own.
+    """
+    return _machines()
+
+
+@server.tool()
+def can_print(
+    size_mm: str,
+    material: str = "",
+    min_feature_mm: float = 0.0,
+    volume_mm3: float = 0.0,
+) -> list:
+    """Which machines can make a part this size, and what stops the others.
+
+    `size_mm` is the bounding box as "XxYxZ" in millimetres. Fit is tried in
+    all six axis-aligned orientations and the one that works is named.
+
+    A time estimate appears only when the machine carries a throughput its
+    owner measured, and even then it is pre-slicing triage that a slicer
+    supersedes. Machines without one answer "requires slicing" rather than
+    returning a modelled number with no provenance.
+    """
+    part = machines_lib.parse_size(size_mm)
+    return [
+        machines_lib.evaluate(
+            machine,
+            part,
+            material or None,
+            min_feature_mm or None,
+            volume_mm3 or None,
+        )
+        for machine in _machines()
+    ]
 
 
 def main() -> None:

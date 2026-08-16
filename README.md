@@ -40,12 +40,45 @@ Shopping list (assuming you build them one at a time):
 
 Also: `advisor.py inventory`, `advisor.py gaps <project-id>`, and `--json` on any command.
 
+### And whether you can actually make the parts
+
+```
+python scripts/machines.py can-print --size 40x30x12 --material petg --volume-mm3 9000
+```
+
+```
+[CANNOT] Creality K2 Plus  (k2-plus)
+    NO   does not fit: part 40.0 x 30.0 x 12.0 mm vs envelope 1 x 1 x 1 mm, in any axis-aligned orientation
+    time unknown: no measured throughput on this machine - print time requires slicing
+
+[CAN PRINT] Example Bench FDM  (example-bench-fdm)
+    ok   fits as modelled (40.0 x 30.0 x 12.0 mm)
+    time ~0.6 h - pre-slicing triage only: bulk volume over one measured rate, ...
+```
+
+That first result is the design working, not failing. The K2 Plus record's build
+volume is a `1x1x1` placeholder marked `TODO(source)` because it isn't in the
+cited material, so every fit check on it fails loudly rather than passing on a
+guessed number. Fill in a measured envelope and it starts answering.
+
+**Print time is never modelled.** A machine gets a time estimate only if its
+record carries a throughput its owner measured and says how they measured it.
+Everything else answers "requires slicing", because a volumetric guess is a
+number with no provenance and would be read as a measurement (ADR-0005).
+
+Fit is tried in all six axis-aligned orientations and the one that works is
+named — a part that fails flat often fits stood on end. `machines.py list`
+shows what you own.
+
 ## How it works
 
 - **Inventory** (`example/inventory.json`) is a list of `part_id` + `qty`. Every id must exist in [OpenPartsCore](https://github.com/thewriterben/OpenPartsCore) — inventory that can't be resolved is refused rather than half-understood.
 - **Projects** (`data/projects/*.json`) declare requirements as either a specific `part_id` or a `capability` any part may provide, each with a quantity.
 - **Matching** allocates owned stock to requirements **exclusively**: one unit satisfies at most one requirement. A single ESP32 cannot be both nodes of a two-node mesh.
 - **Suggestions** for a missing capability are found by **searching the registry**, so they improve as the registry grows. No hand-maintained lists.
+- **Machines** (`example/machines.json`) are owned state like inventory, with fields named to match Project BINGO's machine record so one can be handed to a node without translation. Every capability needs a citation; a throughput needs a `how_measured`.
+
+`python scripts/validate.py` checks all three, and refuses a machine whose rate has no method attached.
 
 ## Where it sits
 
@@ -65,6 +98,7 @@ Inventory is mutable user state and deliberately does not live in the registry (
 - Not a parts database. Facts about parts belong upstream, with citations.
 - Not a store: no pricing, no stock. Those are live and belong to distributor APIs, keyed by the ids here.
 - Not a scheduler or a BOM tool.
+- Not a slicer. `machines.py` does pre-slicing triage — fit, material, feature floor — and hands anything requiring toolpaths to a real slicer.
 
 ## License
 

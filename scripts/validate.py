@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
-"""Validate projects and inventory, including that their references resolve.
+"""Validate projects, inventory and machines, and that their references resolve.
 
-    python scripts/validate.py [--parts <OpenPartsCore dir>] [--inventory <file>]
+    python scripts/validate.py [--parts <dir>] [--inventory <file>] [--machines <file>]
 
 Structure is the easy half. The half that matters is **referential integrity**:
 
 * a `part_id` no registry entry provides is a typo that will read as a gap
   forever, sending someone to buy a part that does not exist under that name;
 * a `capability` no registry part provides makes a project **unbuildable by
-  construction** — the advisor will report it short of something nothing can
+  construction**: the advisor will report it short of something nothing can
   satisfy, and the suggestion list will be empty.
 
 Both fail silently in the advisor: they look like ordinary gaps. So they are
 caught here instead.
+
+Machines get the same treatment for a different reason. Their fields are
+physical claims about hardware, so an uncited capability or a throughput with
+no `how_measured` is a recalled number that will be read as a measurement.
 
 Stdlib only; the JSON Schema files are the authoritative shape definition for
 tooling that can consume them.
@@ -28,6 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ID_RE = re.compile(r"^(boards|electronic|mechanical|material)/[a-z0-9][a-z0-9._-]*$")
 PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+MACHINE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 DIFFICULTIES = {"beginner", "intermediate", "advanced"}
 
 
@@ -87,7 +92,7 @@ def check_project(path: Path, ids: set, capabilities: set) -> list:
             if not ID_RE.match(part_id):
                 bad(f"{where}: malformed part_id '{part_id}'")
             elif part_id not in ids:
-                bad(f"{where}: part_id '{part_id}' is not in the registry — "
+                bad(f"{where}: part_id '{part_id}' is not in the registry: "
                     "this reads as a permanent gap and sends someone shopping "
                     "for a part that does not exist under that name")
         else:
@@ -121,10 +126,67 @@ def check_inventory(path: Path, ids: set) -> list:
     return errors
 
 
+def check_machines(path: Path) -> list:
+    """Machines describe physical hardware, so the checks are about sourcing.
+
+    The one that earns its place is `measured_throughput`: a rate with no
+    `how_measured` is indistinguishable from a number somebody recalled, and
+    it would silently become a print-time estimate the user trusts.
+    """
+    errors = []
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"{path.name}: invalid JSON: {exc}"]
+
+    if doc.get("schema_version") != 0:
+        errors.append(f"{path.name}: schema_version must be 0")
+
+    seen = set()
+    for index, machine in enumerate(doc.get("machines", [])):
+        where = f"machines[{index}]"
+        machine_id = machine.get("machine_id", "")
+        if not MACHINE_ID_RE.match(machine_id):
+            errors.append(f"{path.name}: {where}: malformed machine_id '{machine_id}'")
+        elif machine_id in seen:
+            errors.append(f"{path.name}: {where}: duplicate machine_id '{machine_id}'")
+        seen.add(machine_id)
+
+        for field in ("make", "model", "process", "envelope_mm", "materials"):
+            if field not in machine:
+                errors.append(f"{path.name}: {where}: missing '{field}'")
+
+        envelope = machine.get("envelope_mm") or {}
+        for axis in ("x", "y", "z"):
+            value = envelope.get(axis)
+            if not isinstance(value, (int, float)) or value <= 0:
+                errors.append(f"{path.name}: {where}: envelope_mm.{axis} must be > 0")
+
+        if not (machine.get("source") or {}).get("citation"):
+            errors.append(
+                f"{path.name}: {where}: no source.citation. Capabilities are physical "
+                "facts about hardware; an uncited one is a guess wearing a number."
+            )
+
+        throughput = machine.get("measured_throughput")
+        if throughput is not None:
+            rate = throughput.get("cubic_mm_per_hour")
+            if not isinstance(rate, (int, float)) or rate <= 0:
+                errors.append(
+                    f"{path.name}: {where}: measured_throughput.cubic_mm_per_hour must be > 0")
+            if not throughput.get("how_measured"):
+                errors.append(
+                    f"{path.name}: {where}: measured_throughput has no how_measured. "
+                    "Set it only from a print you timed, and say how."
+                )
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--parts", type=Path, default=ROOT.parent / "OpenPartsCore")
     parser.add_argument("--inventory", type=Path, default=ROOT / "example" / "inventory.json")
+    parser.add_argument("--machines", type=Path, default=ROOT / "example" / "machines.json")
     args = parser.parse_args()
 
     ids, capabilities = load_registry(args.parts)
@@ -139,12 +201,17 @@ def main() -> int:
 
     if args.inventory.exists():
         failures.extend(check_inventory(args.inventory, ids))
+    machine_count = 0
+    if args.machines.exists():
+        failures.extend(check_machines(args.machines))
+        machine_count = len(
+            json.loads(args.machines.read_text(encoding="utf-8")).get("machines", []))
 
     for failure in failures:
         print(f"FAIL {failure}")
     print(
         f"{len(projects)} project(s) checked against {len(ids)} registry part(s) "
-        f"and {len(capabilities)} capability token(s); "
+        f"and {len(capabilities)} capability token(s), plus {machine_count} machine(s); "
         f"{'all valid' if not failures else str(len(failures)) + ' problem(s)'}"
     )
     return 1 if failures else 0

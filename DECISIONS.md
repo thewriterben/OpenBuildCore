@@ -59,3 +59,30 @@ Picking one silently is how a shopping list under-orders — and under-ordering 
 **Decision.** Sequential is the default, because building one thing at a time is the common case and it is the cheaper of the two errors to correct. `--simultaneous` sums. The chosen basis is printed in the human output and carried as a `basis` field in `--json`, so a consumer never has to infer it.
 
 **Consequences.** One more flag, and a real distinction made explicit rather than assumed. The default can still be wrong for someone assembling a fleet — but they are told which assumption produced their list, which is the difference between a wrong number and an unexplained one. Neither mode models parts that are consumed destructively; that would be a third basis, and there is no case for it yet.
+
+---
+
+## ADR-0005 — Machines are owned state, and print time is never modelled
+
+**Date:** 2026-08-16
+**Status:** accepted
+
+**Context.** "What can I build" has a second half the advisor could not answer: whether the user can actually *make* the physical parts. A project that needs a 260 mm bracket is not buildable on a 220 mm bed, and no amount of inventory matching will say so. So machines needed a home.
+
+Two questions had to be answered before writing anything.
+
+**Where machines live.** Machines are exactly like inventory: a record of physical objects a particular person owns, mutable, personal, and meaningless to anyone else. By ADR-0001's reasoning they belong here rather than in the cited reference registry, and `machines.json` is git-ignored the same way `inventory.json` is, with `example/machines.json` shipped as the template. Field names follow Project BINGO's machine record (`machine_id`, `driver`, `make`/`model`, `process`, `envelope_mm`, `materials`, `tier`) so that a machine described here can be handed to a BINGO node without translation.
+
+**How print time is answered.** This is the decision with teeth. A volumetric estimate — part volume over an assumed extrusion rate — is easy, and is what most tools do. It is also a number with no provenance: it ignores travel, infill pattern, supports, cooling and acceleration limits, it is wrong by factors rather than percentages on anything but a solid block, and once printed it will be read as a measurement. That is precisely the failure mode the "never invent physical data" invariant exists to prevent, applied to a derived quantity instead of a datasheet value.
+
+**Decision.**
+
+- A time estimate is produced **only** when the machine record carries a `measured_throughput` its owner measured, and only when `how_measured` says how. The validator rejects a rate without one, because an unsourced rate is indistinguishable from a recalled one.
+- Machines without a measured throughput answer **"requires slicing"**. Absence of an estimate is the honest default, not a gap to be filled.
+- Even a measured estimate is labelled pre-slicing triage that a slicer supersedes, and the caveat travels in the returned result rather than in documentation.
+- Fit is checked over all six **axis-aligned** orientations and the working one is named, because a part that fails flat often fits stood on end. Arbitrary orientations are out of scope and stated as such: finding them is a slicer's or a human's job.
+- Every machine needs a `source.citation`, the same gate the reference registry uses. A capability is a physical claim about hardware.
+
+**Consequences.** The system will frequently answer "I cannot tell you how long this takes", which is less useful than a number and more useful than a wrong one. Users who want estimates have a clear path: time one print, record the rate and the method. The shipped K2 Plus record demonstrates the discipline uncomfortably — its `envelope_mm` is a `1×1×1` placeholder marked `TODO(source)` because the build volume is not in the cited material, so every fit check on it fails loudly rather than passing on a guessed number. That is the intended behaviour, and a test pins it.
+
+Axis-aligned-only fit will report false negatives on parts that need a diagonal. That is the safe direction to be wrong in, and the message says which check failed so a human can overrule it.

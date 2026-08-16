@@ -93,6 +93,73 @@ class ReferentialIntegrityTests(unittest.TestCase):
         self.assertTrue(any("not in the registry" in e for e in errors), errors)
 
 
+def machine(**overrides) -> dict:
+    doc = {
+        "schema_version": 0,
+        "machine_id": "bench",
+        "make": "M",
+        "model": "Bench",
+        "process": "fdm",
+        "envelope_mm": {"x": 220, "y": 220, "z": 250},
+        "materials": ["pla"],
+        "source": {"citation": "measured with calipers", "retrieved": "2026-08-15"},
+    }
+    doc.update(overrides)
+    return doc
+
+
+class MachineValidationTests(unittest.TestCase):
+    """Machine fields are physical claims, so the checks are about sourcing."""
+
+    def setUp(self):
+        self._dir = tempfile.TemporaryDirectory()
+        self.dir = Path(self._dir.name)
+
+    def tearDown(self):
+        self._dir.cleanup()
+
+    def check(self, *machines_) -> list:
+        path = write(self.dir, "machines.json",
+                     {"schema_version": 0, "machines": list(machines_)})
+        return validate.check_machines(path)
+
+    def test_valid_machine_passes(self):
+        self.assertEqual(self.check(machine()), [])
+
+    def test_uncited_machine_is_rejected(self):
+        errors = self.check(machine(source={}))
+        self.assertTrue(any("no source.citation" in e for e in errors), errors)
+
+    def test_throughput_without_how_measured_is_rejected(self):
+        """The check that earns its place: an unsourced rate becomes a time
+        estimate the user trusts."""
+        errors = self.check(machine(
+            measured_throughput={"cubic_mm_per_hour": 14000}))
+        self.assertTrue(any("no how_measured" in e for e in errors), errors)
+
+    def test_throughput_with_how_measured_passes(self):
+        self.assertEqual(self.check(machine(measured_throughput={
+            "cubic_mm_per_hour": 14000, "how_measured": "timed a 100 g benchy"})), [])
+
+    def test_absent_throughput_is_fine(self):
+        """Absence is the honest default, not an error."""
+        self.assertEqual(self.check(machine(measured_throughput=None)), [])
+
+    def test_zero_envelope_axis_is_rejected(self):
+        errors = self.check(machine(envelope_mm={"x": 220, "y": 0, "z": 250}))
+        self.assertTrue(any("envelope_mm.y must be > 0" in e for e in errors), errors)
+
+    def test_duplicate_machine_id_is_rejected(self):
+        errors = self.check(machine(), machine())
+        self.assertTrue(any("duplicate machine_id" in e for e in errors), errors)
+
+    def test_missing_field_is_rejected(self):
+        doc = machine()
+        del doc["materials"]
+        errors = self.check(doc)
+        self.assertTrue(any("missing 'materials'" in e for e in errors), errors)
+
+
 class ShippedDataTests(unittest.TestCase):
     def test_every_shipped_project_and_the_example_inventory_validate(self):
         parts = validate.ROOT.parent / "OpenPartsCore"
@@ -104,6 +171,9 @@ class ShippedDataTests(unittest.TestCase):
             failures.extend(validate.check_project(path, ids, capabilities))
         failures.extend(
             validate.check_inventory(validate.ROOT / "example" / "inventory.json", ids)
+        )
+        failures.extend(
+            validate.check_machines(validate.ROOT / "example" / "machines.json")
         )
         self.assertEqual(failures, [])
 
