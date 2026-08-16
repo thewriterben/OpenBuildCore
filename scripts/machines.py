@@ -167,6 +167,66 @@ def parse_size(text: str) -> tuple:
         raise SystemExit(f"--size must be numeric, got '{text}'") from exc
 
 
+SIDECAR_PREFIX = "odc/provenance/"
+
+
+def load_sidecar(path: Path) -> dict:
+    """Take a part's dimensions from an OpenDesignCore provenance record.
+
+    Better than a hand-typed --size for the reason provenance exists at all:
+    the numbers came from the geometry that will be printed, and the answer can
+    name the artifact it judged.
+
+    The requirement checked here is the *field*, not a version number. A record
+    that carries artifact.bbox_mm works whatever its schema says; one that does
+    not is refused with the schema named, so the user knows which record they
+    handed over rather than being told a dimension nobody measured.
+
+    Material is deliberately not read from the sidecar. OpenDesignCore designs
+    geometry and does not know what it will be printed in, so material stays a
+    caller's declaration.
+    """
+    if not path.exists():
+        raise SystemExit(f"no sidecar at {path}")
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{path} is not valid JSON: {exc}") from exc
+
+    schema = doc.get("schema", "")
+    if not schema.startswith(SIDECAR_PREFIX):
+        raise SystemExit(
+            f"{path} is not an OpenDesignCore provenance record "
+            f"(schema '{schema or 'absent'}', expected one starting '{SIDECAR_PREFIX}')"
+        )
+
+    artifact = doc.get("artifact") or {}
+    bbox = artifact.get("bbox_mm")
+    if not bbox:
+        raise SystemExit(
+            f"{path} is schema '{schema}', which does not record the artifact's own "
+            "dimensions - only its inputs. Re-run the design with a tool version "
+            "that emits odc/provenance/0.2 or later (OpenDesignCore ADR-0010). "
+            "Refusing rather than guessing a size from the part envelope, which is "
+            "the part that goes inside, not the thing that gets printed."
+        )
+
+    try:
+        size_mm = tuple(float(bbox[axis]) for axis in ("x", "y", "z"))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SystemExit(f"{path}: artifact.bbox_mm is malformed: {bbox}") from exc
+
+    volume = artifact.get("volume_cubic_mm")
+    return {
+        "size_mm": size_mm,
+        "volume_mm3": float(volume) if volume is not None else None,
+        "schema": schema,
+        "model": doc.get("model", "unknown"),
+        "artifact_sha256": artifact.get("sha256", "unknown"),
+        "voxel_size_mm": doc.get("voxel_size_mm"),
+    }
+
+
 def render_list(machines: list) -> None:
     for machine in machines:
         envelope = machine["envelope_mm"]
@@ -204,6 +264,8 @@ def main() -> int:
     parser.add_argument("command", choices=["list", "can-print"])
     parser.add_argument("--machines", type=Path, default=DEFAULT_MACHINES)
     parser.add_argument("--size", help="part bounding box, XxYxZ in mm")
+    parser.add_argument("--from-sidecar", type=Path, default=None,
+                        help="take size and volume from an OpenDesignCore provenance record")
     parser.add_argument("--material", help="material token, e.g. petg")
     parser.add_argument("--min-feature-mm", type=float, default=None)
     parser.add_argument("--volume-mm3", type=float, default=None,
@@ -220,18 +282,39 @@ def main() -> int:
             render_list(machines)
         return 0
 
-    if not args.size:
-        print("can-print needs --size XxYxZ (mm)", file=sys.stderr)
+    if args.size and args.from_sidecar:
+        print("give --size or --from-sidecar, not both: they are two answers to "
+              "the same question and silently preferring one would hide a "
+              "disagreement between the design and what was typed", file=sys.stderr)
         return 2
-    part = parse_size(args.size)
+
+    source = None
+    if args.from_sidecar:
+        source = load_sidecar(args.from_sidecar)
+        part = source["size_mm"]
+        volume = args.volume_mm3 if args.volume_mm3 is not None else source["volume_mm3"]
+    elif args.size:
+        part = parse_size(args.size)
+        volume = args.volume_mm3
+    else:
+        print("can-print needs --size XxYxZ (mm) or --from-sidecar <file>", file=sys.stderr)
+        return 2
 
     results = [
-        evaluate(m, part, args.material, args.min_feature_mm, args.volume_mm3)
+        evaluate(m, part, args.material, args.min_feature_mm, volume)
         for m in machines
     ]
     if args.json:
-        print(json.dumps(results, indent=2))
+        print(json.dumps({"source": source, "machines": results}, indent=2))
         return 0
+
+    if source:
+        print(f"Part from {source['model']} artifact sha256:{source['artifact_sha256'][:12]} "
+              f"({source['schema']})")
+        print(f"  {part[0]} x {part[1]} x {part[2]} mm"
+              + (f", {volume} mm3" if volume is not None else "")
+              + (f", voxel {source['voxel_size_mm']} mm" if source["voxel_size_mm"] else ""))
+        print()
 
     render_results(results)
     capable = [r for r in results if r["can_print"]]
