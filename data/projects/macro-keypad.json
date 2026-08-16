@@ -1,0 +1,12 @@
+{
+  "schema_version": 0,
+  "id": "macro-keypad",
+  "name": "USB macro keypad",
+  "description": "A handful of keys that send shortcuts to your computer. The classic first project with a spare microcontroller: no radio, no sensors, nothing to debug but your own keymap.",
+  "difficulty": "beginner",
+  "requires": [
+    { "capability": "gpio", "qty": 1, "note": "host — native USB is easier here" },
+    { "part_id": "electronic/c-0603", "qty": 2, "note": "decoupling" }
+  ],
+  "related_designs": []
+}

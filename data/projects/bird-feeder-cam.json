@@ -1,0 +1,17 @@
+{
+  "schema_version": 0,
+  "id": "bird-feeder-cam",
+  "name": "Bird feeder camera with on-device classification",
+  "description": "A camera at a feeder that decides on-device whether a frame contains a bird before spending power on the radio. Requires an accelerator, not just a camera — running classification on the host is the version that flattens a battery in a day.",
+  "difficulty": "advanced",
+  "requires": [
+    { "capability": "camera_capture", "qty": 1 },
+    { "capability": "nn_accel", "qty": 1, "note": "on-device inference; the whole point" },
+    { "capability": "wifi", "qty": 1, "note": "upload only the frames worth uploading" },
+    { "capability": "microsd", "qty": 1, "note": "buffer when the link is down" },
+    { "part_id": "electronic/c-0603", "qty": 6 }
+  ],
+  "related_designs": [
+    "ClawCam — node firmware, gateway and detection pipeline for exactly this shape of build"
+  ]
+}
