@@ -1,0 +1,2 @@
+# MCP surface only. The advisor itself is stdlib and needs nothing.
+mcp>=1.2
