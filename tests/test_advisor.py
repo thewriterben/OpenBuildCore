@@ -85,6 +85,39 @@ class AllocationTests(unittest.TestCase):
         self.assertEqual(result["gaps"][0]["suggestions"], [])
 
 
+class ShoppingListTests(unittest.TestCase):
+    """The sequential/simultaneous distinction: under-ordering is the failure."""
+
+    def setUp(self):
+        needs_one = {"id": "a", "name": "A", "requires": [{"capability": "lora", "qty": 1}]}
+        needs_two = {"id": "b", "name": "B", "requires": [{"capability": "lora", "qty": 2}]}
+        self.results = [
+            advisor.evaluate(needs_one, {}, REGISTRY),
+            advisor.evaluate(needs_two, {}, REGISTRY),
+        ]
+
+    def test_sequential_builds_reuse_parts_so_quantity_is_the_max(self):
+        items = advisor.shopping_list(self.results, simultaneous=False)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["qty"], 2)
+
+    def test_simultaneous_builds_need_the_sum(self):
+        items = advisor.shopping_list(self.results, simultaneous=True)
+        self.assertEqual(items[0]["qty"], 3)
+
+    def test_items_record_which_projects_they_unlock(self):
+        items = advisor.shopping_list(self.results, simultaneous=False)
+        self.assertEqual(sorted(items[0]["unlocks"]), ["a", "b"])
+
+    def test_nothing_to_buy_when_everything_is_buildable(self):
+        buildable = advisor.evaluate(
+            {"id": "c", "name": "C", "requires": [{"capability": "lora", "qty": 1}]},
+            {"boards/radio": 1},
+            REGISTRY,
+        )
+        self.assertEqual(advisor.shopping_list([buildable], simultaneous=False), [])
+
+
 class InventoryTests(unittest.TestCase):
     def test_unknown_part_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
