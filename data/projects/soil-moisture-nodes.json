@@ -1,0 +1,14 @@
+{
+  "schema_version": 0,
+  "id": "soil-moisture-nodes",
+  "name": "Three battery soil-moisture nodes",
+  "description": "Three independent sensing nodes reporting to one base. Deliberately quantified at three: this is where an exclusive-allocation matcher earns its keep, since owning one suitable board satisfies none of it.",
+  "difficulty": "intermediate",
+  "requires": [
+    { "capability": "analog_read", "qty": 3, "note": "one per node — resistive or capacitive probe" },
+    { "capability": "battery", "qty": 3, "note": "battery management, one per node" },
+    { "capability": "wifi", "qty": 1, "note": "the base that collects" },
+    { "part_id": "electronic/c-0603", "qty": 9 }
+  ],
+  "related_designs": []
+}

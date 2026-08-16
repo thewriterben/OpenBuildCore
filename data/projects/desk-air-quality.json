@@ -1,0 +1,18 @@
+{
+  "schema_version": 0,
+  "id": "desk-air-quality",
+  "name": "Desk air-quality monitor",
+  "description": "CO2, temperature and humidity on a small display, on your desk where you will actually look at it. The BME280 alone cannot measure CO2 — that needs an SCD41 — which is the point of listing them separately rather than hand-waving at 'a sensor'.",
+  "difficulty": "beginner",
+  "requires": [
+    { "capability": "wifi", "qty": 1, "note": "host with wifi, to publish readings" },
+    { "part_id": "electronic/scd41", "qty": 1, "note": "true CO2, not an estimate from VOC" },
+    { "part_id": "electronic/bme280", "qty": 1, "note": "temperature, humidity, pressure" },
+    { "capability": "display", "qty": 1 },
+    { "part_id": "electronic/r-0603", "qty": 2, "note": "I2C pull-ups" },
+    { "part_id": "electronic/c-0603", "qty": 3, "note": "decoupling" }
+  ],
+  "related_designs": [
+    "OpenCircuitCore boards/sensor-breakout — the I2C sensor half of this, already ERC and DRC clean"
+  ]
+}

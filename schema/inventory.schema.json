@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openbuildcore/inventory.schema.json",
+  "title": "Inventory",
+  "description": "What a person owns. Mutable user state referencing canonical part ids (platform decision PD-2); deliberately not part of the cited registry.",
+  "type": "object",
+  "required": ["schema_version", "items"],
+  "properties": {
+    "schema_version": { "const": 0 },
+    "owner": { "type": "string" },
+    "note": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["part_id"],
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "pattern": "^(boards|electronic|mechanical|material)/[a-z0-9][a-z0-9._-]*$"
+          },
+          "qty": { "type": "integer", "minimum": 1 },
+          "note": { "type": "string" },
+          "location": {
+            "type": "string",
+            "description": "Where it physically is. Free text; nothing depends on it."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
