@@ -1,6 +1,9 @@
-# Personal inventory is user state, not repo content. example/ is the sample.
+# Personal inventory and machines are user state, not repo content.
+# example/ holds the samples.
 /inventory.json
 /inventory.*.json
+/machines.json
+/machines.*.json
 
 __pycache__/
 *.py[cod]

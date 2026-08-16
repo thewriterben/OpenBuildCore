@@ -1,0 +1,52 @@
+{
+  "schema_version": 0,
+  "owner": "example",
+  "note": "Machines the user owns. Mutable user state, like inventory: a real machines.json is git-ignored. Every capability here is cited or marked TODO(source); nothing is recalled.",
+  "machines": [
+    {
+      "schema_version": 0,
+      "machine_id": "k2-plus",
+      "make": "Creality",
+      "model": "K2 Plus",
+      "process": "fdm",
+      "driver": "moonraker",
+      "tier": 0,
+      "envelope_mm": { "x": 1, "y": 1, "z": 1 },
+      "materials": ["pla", "petg", "abs", "asa", "pc", "pa", "tpu"],
+      "constraints": {
+        "nozzle_diameter_mm": 0.4,
+        "max_nozzle_temp_c": 350,
+        "chamber_heated": true,
+        "chamber_max_usable_c": 60
+      },
+      "measured_throughput": null,
+      "source": {
+        "citation": "3DP/AdvancedStudio/docs/Research-Report.md §4.2-4.3, itself citing Creality Wiki (k2-plus chamber-temp) and the Helper-Script K2 Plus wiki: dedicated PTC chamber heater, active control 40-60 C (firmware max_temp 80, 60 usable); max nozzle <= 350 C; handles PLA/PETG/ABS/ASA/PC/PA/TPU plus CF/GF composites. Nozzle diameter 0.4 mm is the stock size assumed throughout that report's calibration guidance. TODO(source): envelope_mm is a PLACEHOLDER of 1x1x1 - the build volume is not stated anywhere in the cited material and is deliberately not recalled from memory. Measure the bed or take it from the manual, then replace. Until then every fit check on this machine will fail loudly rather than pass on a guessed number.",
+        "url": "https://wiki.creality.com/en/k2-flagship-series/k2-plus/chamber-temp",
+        "retrieved": "2026-08-15"
+      },
+      "note": "measured_throughput is null: print time requires slicing. Set it only from a print you actually timed, and say how in how_measured."
+    },
+    {
+      "schema_version": 0,
+      "machine_id": "example-bench-fdm",
+      "make": "Example",
+      "model": "Bench FDM",
+      "process": "fdm",
+      "driver": "manual",
+      "tier": 0,
+      "envelope_mm": { "x": 220, "y": 220, "z": 250 },
+      "materials": ["pla", "petg"],
+      "constraints": { "nozzle_diameter_mm": 0.4, "min_feature_mm": 0.8 },
+      "measured_throughput": {
+        "cubic_mm_per_hour": 14000,
+        "how_measured": "Illustrative only: a fictional machine's fictional measurement, present so the time path has something to exercise. Do not copy this number onto a real machine.",
+        "measured_on": "2026-08-15"
+      },
+      "source": {
+        "citation": "Fictional machine, invented for tests and documentation. Not a real product and its figures describe nothing.",
+        "retrieved": "2026-08-15"
+      }
+    }
+  ]
+}

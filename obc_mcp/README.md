@@ -11,7 +11,7 @@ claude mcp add openbuildcore --scope user -- python -m obc_mcp.server
 
 Verified connected against a real client, not just imported.
 
-Environment: `OBC_INVENTORY` (default `example/inventory.json`), `OPC_DIR` (default `../OpenPartsCore`).
+Environment: `OBC_INVENTORY` (default `example/inventory.json`), `OBC_MACHINES` (default `example/machines.json`), `OPC_DIR` (default `../OpenPartsCore`).
 
 ## Tools
 
@@ -22,12 +22,16 @@ Environment: `OBC_INVENTORY` (default `example/inventory.json`), `OPC_DIR` (defa
 | `what_can_i_build` | Every project evaluated against the inventory |
 | `gaps` | One project's shortfalls, with registry-derived suggestions |
 | `shopping_list` | Gaps aggregated, with an explicit sequential/simultaneous basis |
+| `list_machines` | The machines the user owns, with envelope, materials and constraints |
+| `can_print` | Which machines can make a part this size, and what stops the others |
 
 ## Why everything executes
 
-OpenDesignCore ADR-0009 draws the line at the store boundary: effects confined to a peer's own content-addressed stores execute, anything reaching beyond stops at a proposal. Nothing here writes to a store, moves hardware, or reaches a fabricator — so all five tools execute, and there is nothing to propose.
+OpenDesignCore ADR-0009 draws the line at the store boundary: effects confined to a peer's own content-addressed stores execute, anything reaching beyond stops at a proposal. Nothing here writes to a store, moves hardware, or reaches a fabricator — so all seven tools execute, and there is nothing to propose.
 
-**There is deliberately no tool that edits inventory.** Inventory is the user's own record of physical objects. An agent quietly deciding you own three more resistors than you do would poison every answer downstream, and the error would only surface at the bench.
+**There is deliberately no tool that edits inventory or machines.** Both are the user's own record of physical objects. An agent quietly deciding you own three more resistors than you do would poison every answer downstream, and the error would only surface at the bench. The same applies to a build volume nobody measured.
+
+`can_print` will often decline to estimate time. That is the design (ADR-0005): a time estimate appears only when the machine record carries a throughput its owner measured, and everything else answers "requires slicing" rather than returning a modelled number an agent would present as a measurement.
 
 ## Note on the SDK
 

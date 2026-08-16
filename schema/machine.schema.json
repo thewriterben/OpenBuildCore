@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openbuildcore/machine.schema.json",
+  "title": "Machine",
+  "description": "A fabrication machine the user owns. Field names follow Project BINGO's node machine record ({machine_id, driver, make/model, process, envelope_mm, materials[], tier}) so a machine on a bench and a machine offered to the network describe themselves the same way rather than diverging.",
+  "type": "object",
+  "required": ["schema_version", "machine_id", "make", "model", "process", "envelope_mm", "materials", "source"],
+  "properties": {
+    "schema_version": { "const": 0 },
+    "machine_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "make": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "process": {
+      "enum": ["fdm", "sla", "sls", "cnc-mill", "cnc-lathe", "laser", "sheet-metal", "pcba"],
+      "description": "BINGO uses the same token for routing a job to a capable node."
+    },
+    "driver": {
+      "type": "string",
+      "description": "How software talks to it: moonraker, bambu, octoprint, linuxcnc, manual."
+    },
+    "tier": {
+      "type": "integer", "minimum": 0, "maximum": 3,
+      "description": "BINGO capability tier. 0 hobbyist FDM, 1 professional, 2 certified shop, 3 specialised. Declaring a tier is a claim about evidence you can produce, not about your equipment."
+    },
+    "envelope_mm": {
+      "type": "object",
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "number", "exclusiveMinimum": 0 },
+        "y": { "type": "number", "exclusiveMinimum": 0 },
+        "z": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "materials": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lowercase material tokens the machine can actually run, e.g. pla, petg, abs, asa, pc, pa, tpu."
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "nozzle_diameter_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "min_feature_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "max_nozzle_temp_c": { "type": "number" },
+        "max_bed_temp_c": { "type": "number" },
+        "chamber_heated": { "type": "boolean" },
+        "chamber_max_usable_c": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "measured_throughput": {
+      "type": ["object", "null"],
+      "description": "Only ever a figure the owner measured. Absent means print time cannot be estimated and the answer is 'requires slicing' — a slicer is the only honest source, and a volumetric guess would be an invented number.",
+      "required": ["cubic_mm_per_hour", "how_measured"],
+      "properties": {
+        "cubic_mm_per_hour": { "type": "number", "exclusiveMinimum": 0 },
+        "how_measured": { "type": "string", "minLength": 1 },
+        "measured_on": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["citation"],
+      "properties": {
+        "citation": { "type": "string", "minLength": 1 },
+        "url": { "type": "string" },
+        "retrieved": { "type": "string" }
+      }
+    },
+    "note": { "type": "string" }
+  },
+  "additionalProperties": false
+}
