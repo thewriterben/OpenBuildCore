@@ -1,0 +1,15 @@
+{
+  "schema_version": 0,
+  "id": "lora-relay",
+  "name": "LoRa relay node",
+  "description": "A single node that forwards long-range traffic to WiFi. Shares its missing radio with two-node-mesh, which is what makes the sequential-vs-simultaneous distinction in the shopping list visible: build them one after another and one radio is reused; build both at once and you need three radios in total.",
+  "difficulty": "beginner",
+  "requires": [
+    { "capability": "gpio", "qty": 1, "note": "host" },
+    { "capability": "lora", "qty": 1, "note": "radio" },
+    { "part_id": "electronic/c-0603", "qty": 2, "note": "decoupling" }
+  ],
+  "related_designs": [
+    "Oh-Ben-Claw fleet/LoRa serial bridge"
+  ]
+}

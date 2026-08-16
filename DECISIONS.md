@@ -44,3 +44,18 @@ Append-only. Newest at the bottom.
 **Status:** accepted (PD-4)
 
 Uniform with OpenDesignCore, OpenPartsCore and OpenCircuitCore.
+
+---
+
+## ADR-0004 — A shopping list must state whether builds are sequential or simultaneous
+
+**Date:** 2026-08-15
+**Status:** accepted
+
+**Context.** Aggregating gaps across projects into one buyable list needs a quantity per line, and there are two defensible answers. If you build projects one at a time, parts are reused, so you need the **worst single shortfall** — the max. If all the projects must exist at once, shortfalls **sum**. With the seed catalogue the answers differ: `two-node-mesh` needs 2 LoRa radios and `lora-relay` needs 1, giving **2 sequentially and 3 simultaneously**.
+
+Picking one silently is how a shopping list under-orders — and under-ordering is discovered at the bench, after the parts arrive.
+
+**Decision.** Sequential is the default, because building one thing at a time is the common case and it is the cheaper of the two errors to correct. `--simultaneous` sums. The chosen basis is printed in the human output and carried as a `basis` field in `--json`, so a consumer never has to infer it.
+
+**Consequences.** One more flag, and a real distinction made explicit rather than assumed. The default can still be wrong for someone assembling a fleet — but they are told which assumption produced their list, which is the difference between a wrong number and an unexplained one. Neither mode models parts that are consumed destructively; that would be a third basis, and there is no case for it yet.

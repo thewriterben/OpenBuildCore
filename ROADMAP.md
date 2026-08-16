@@ -7,7 +7,8 @@
 - [ ] Grow the project catalogue past the point where "what can I build" is interesting
 
 ## Next
-- [ ] Shopping list output: gaps → one buyable list, deduplicated across projects, keyed by part id for live pricing
+- [x] Shopping list: gaps → one buyable list, deduplicated across projects, with an explicit sequential/simultaneous basis (ADR-0004) (2026-08-15)
+- [ ] Live pricing on the shopping list, keyed by part id (distributor APIs)
 - [ ] MCP surface, following OpenDesignCore ADR-0009: reads and matching execute, nothing here reaches a fabricator
 - [ ] "What should I build?" ranking — order buildable projects by how much of the inventory they use, or by fewest missing parts
 - [ ] Inventory capture assist: photograph a drawer, identify parts (ClawCam-adjacent vision already exists in the ecosystem)

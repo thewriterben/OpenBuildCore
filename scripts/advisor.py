@@ -145,6 +145,55 @@ def suggest(req: dict, registry: dict, owned: dict) -> list[dict]:
     return found[:5]
 
 
+def shopping_list(results: list, simultaneous: bool) -> list:
+    """Aggregate gaps across projects into one buyable list.
+
+    Quantity depends on an assumption nobody should have to guess at:
+
+    * sequential (default) -- you build these one at a time and reuse parts,
+      so you need the *worst* single shortfall: max across projects.
+    * simultaneous -- all of them exist at once, so shortfalls *sum*.
+
+    Getting this wrong silently is how a shopping list under-orders.
+    """
+    needed: dict[str, dict] = {}
+    for result in results:
+        for gap in result["gaps"]:
+            entry = needed.setdefault(
+                gap["requirement"],
+                {
+                    "requirement": gap["requirement"],
+                    "qty": 0,
+                    "unlocks": [],
+                    "suggestions": gap["suggestions"],
+                },
+            )
+            entry["qty"] = (
+                entry["qty"] + gap["qty_short"]
+                if simultaneous
+                else max(entry["qty"], gap["qty_short"])
+            )
+            entry["unlocks"].append(result["project"])
+    return sorted(
+        needed.values(), key=lambda e: (-len(e["unlocks"]), e["requirement"])
+    )
+
+
+def render_shopping(items: list, simultaneous: bool) -> None:
+    basis = "all at once" if simultaneous else "one at a time"
+    if not items:
+        print("Nothing to buy: every project is buildable from stock.")
+        return
+    print(f"Shopping list (assuming you build them {basis}):\n")
+    for item in items:
+        unlocks = ", ".join(item["unlocks"])
+        print(f"  {item['qty']:>3}x  {item['requirement']}")
+        print(f"        unlocks: {unlocks}")
+        for suggestion in item["suggestions"][:3]:
+            print(f"        e.g. {suggestion['part_id']} - {suggestion['name']}")
+        print()
+
+
 def render(result: dict) -> None:
     mark = "BUILDABLE" if result["buildable"] else "MISSING PARTS"
     print(f"[{mark}] {result['name']}  ({result['project']})")
@@ -163,11 +212,23 @@ def render(result: dict) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["what-can-i-build", "gaps", "inventory"])
+    parser.add_argument(
+        "command",
+        choices=["what-can-i-build", "gaps", "inventory", "shopping-list"],
+    )
     parser.add_argument("project", nargs="?", default=None)
     parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
     parser.add_argument("--parts", type=Path, default=DEFAULT_PARTS)
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument(
+        "--for", dest="for_projects", default=None,
+        help="comma-separated project ids to shop for (default: all)",
+    )
+    parser.add_argument(
+        "--simultaneous", action="store_true",
+        help="you want all the projects to exist at once, so shortfalls sum "
+             "instead of being reused across sequential builds",
+    )
     args = parser.parse_args()
 
     registry = load_registry(args.parts)
@@ -203,6 +264,25 @@ def main() -> int:
         if not args.json:
             render(result)
         return 0 if result["buildable"] else 1
+
+    if args.command == "shopping-list":
+        chosen = projects
+        if args.for_projects:
+            wanted = {p.strip() for p in args.for_projects.split(",")}
+            chosen = [p for p in projects if p["id"] in wanted]
+            unknown = wanted - {p["id"] for p in chosen}
+            if unknown:
+                print(f"unknown project(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+                return 2
+        results = [evaluate(p, owned, registry) for p in chosen]
+        items = shopping_list(results, args.simultaneous)
+        if args.json:
+            print(json.dumps(
+                {"basis": "simultaneous" if args.simultaneous else "sequential",
+                 "items": items}, indent=2))
+        else:
+            render_shopping(items, args.simultaneous)
+        return 0
 
     results = [evaluate(p, owned, registry) for p in projects]
     if args.json:

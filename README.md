@@ -22,6 +22,22 @@ python scripts/advisor.py what-can-i-build
            consider boards/lilygo-t-beam - lilygo-t-beam
 ```
 
+Then buy the right things:
+
+```
+python scripts/advisor.py shopping-list
+```
+
+```
+Shopping list (assuming you build them one at a time):
+
+    2x  capability:lora
+        unlocks: lora-relay, two-node-mesh
+        e.g. boards/heltec-wifi-lora-32-v3 - heltec-wifi-lora-32-v3
+```
+
+`--simultaneous` if you want them all to exist at once — then the same list says **3x**, because shortfalls sum instead of parts being reused between builds. The basis is always stated, never assumed (ADR-0004). `--for a,b` shops for chosen projects only.
+
 Also: `advisor.py inventory`, `advisor.py gaps <project-id>`, and `--json` on any command.
 
 ## How it works
