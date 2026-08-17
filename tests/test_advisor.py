@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import advisor  # noqa: E402
+import machines as machines_lib  # noqa: E402
 
 REGISTRY = {
     "boards/mcu": {
@@ -137,7 +138,129 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(advisor.load_inventory(path, REGISTRY), {"boards/mcu": 5})
 
 
+BENCH = {
+    "machine_id": "bench", "make": "M", "model": "Bench", "process": "fdm",
+    "envelope_mm": {"x": 220, "y": 220, "z": 250},
+    "materials": ["pla", "petg"],
+    "constraints": {"nozzle_diameter_mm": 0.4},
+    "measured_throughput": None,
+}
+
+
+def with_made_part(**overrides) -> dict:
+    made = {"make": "bracket", "size_mm": {"x": 40, "y": 30, "z": 12},
+            "material": "petg", "qty": 1}
+    made.update(overrides)
+    return {
+        "id": "p", "name": "Project",
+        "requires": [{"capability": "gpio", "qty": 1}, made],
+    }
+
+
+class MadePartTests(unittest.TestCase):
+    """Made parts are a different question from shopping, and stay separate.
+
+    A project short a LoRa radio is fixed by buying one. A project needing a
+    260 mm bracket on a 220 mm bed is not fixed by buying anything, so the two
+    must not collapse into one "missing" bucket.
+    """
+
+    OWNED = {"boards/mcu": 1}
+
+    def evaluate(self, project, machines):
+        return advisor.evaluate(project, self.OWNED, REGISTRY, machines)
+
+    def test_a_makeable_part_does_not_block(self):
+        result = self.evaluate(with_made_part(), [BENCH])
+        self.assertTrue(result["buildable"])
+        self.assertTrue(result["makeable"])
+        self.assertEqual("makeable", result["fabricate"][0]["status"])
+
+    def test_a_part_no_machine_can_make_leaves_the_parts_half_satisfied(self):
+        """The distinction that earns the second boolean: every part is owned,
+        and the project still cannot be finished."""
+        result = self.evaluate(
+            with_made_part(size_mm={"x": 24, "y": 18, "z": 260}), [BENCH])
+        self.assertTrue(result["buildable"], "the parts half is fine")
+        self.assertFalse(result["makeable"])
+        self.assertEqual([], result["gaps"], "an unmakeable part is not a parts gap")
+        self.assertEqual("no_machine", result["fabricate"][0]["status"])
+
+    def test_wrong_material_blocks_as_surely_as_wrong_size(self):
+        result = self.evaluate(with_made_part(material="asa"), [BENCH])
+        self.assertFalse(result["makeable"])
+        blockers = result["fabricate"][0]["machines"][0]["blockers"]
+        self.assertTrue(any("cannot run asa" in b for b in blockers), blockers)
+
+    def test_no_machines_declared_is_unknown_not_cannot(self):
+        """Absence of evidence recorded as absence, like an undeclared scanner
+        accuracy in OpenDesignCore."""
+        result = self.evaluate(with_made_part(), None)
+        self.assertIsNone(result["makeable"])
+        self.assertEqual("unknown", result["fabricate"][0]["status"])
+        self.assertTrue(result["buildable"])
+
+    def test_a_project_with_no_made_parts_is_makeable_vacuously(self):
+        project = {"id": "p", "name": "P",
+                   "requires": [{"capability": "gpio", "qty": 1}]}
+        result = advisor.evaluate(project, self.OWNED, REGISTRY, None)
+        self.assertTrue(result["makeable"])
+        self.assertEqual([], result["fabricate"])
+
+    def test_made_parts_never_reach_the_shopping_list(self):
+        """Buying more parts cannot fix a bed that is too small, so an
+        unmakeable part on a shopping list would sit unbought forever looking
+        like an ordering oversight."""
+        result = self.evaluate(
+            with_made_part(size_mm={"x": 24, "y": 18, "z": 260}), [BENCH])
+        items = advisor.shopping_list([result], simultaneous=False)
+        self.assertEqual([], items)
+
+    def test_a_made_part_does_not_consume_owned_stock(self):
+        """It is fabricated, not allocated: it must not compete with the
+        electronics for the one board in the drawer."""
+        project = with_made_part()
+        result = self.evaluate(project, [BENCH])
+        allocated = result["satisfied"][0]["allocated"]
+        self.assertEqual([{"part_id": "boards/mcu", "qty": 1}], allocated)
+
+    def test_status_label_names_which_half_failed(self):
+        parts_short = advisor.evaluate(
+            with_made_part(), {}, REGISTRY, [BENCH])
+        self.assertEqual("MISSING PARTS", advisor.status_of(parts_short))
+
+        machine_short = self.evaluate(
+            with_made_part(size_mm={"x": 24, "y": 18, "z": 260}), [BENCH])
+        self.assertEqual("NO MACHINE", advisor.status_of(machine_short))
+
+        both = advisor.evaluate(
+            with_made_part(size_mm={"x": 24, "y": 18, "z": 260}), {}, REGISTRY, [BENCH])
+        self.assertEqual("BLOCKED", advisor.status_of(both))
+
+        unknown = self.evaluate(with_made_part(), None)
+        self.assertEqual("PARTS OK, MACHINES UNKNOWN", advisor.status_of(unknown))
+
+
 class ShippedDataTests(unittest.TestCase):
+    def test_shipped_made_parts_exercise_both_outcomes(self):
+        """The catalogue must not only contain parts the example machine can
+        make, or the negative path ships untested."""
+        projects = {p["id"]: p for p in
+                    advisor.load_projects(advisor.ROOT / "data" / "projects")}
+        machines = machines_lib.load_machines(
+            advisor.ROOT / "example" / "machines.json")
+        registry = {"boards/mcu": REGISTRY["boards/mcu"]}
+
+        statuses = {}
+        for pid, project in projects.items():
+            result = advisor.evaluate(project, {}, registry, machines)
+            for made in result["fabricate"]:
+                statuses[f"{pid}:{made['make']}"] = made["status"]
+
+        self.assertTrue(statuses, "no shipped project declares a part to be made")
+        self.assertIn("makeable", statuses.values())
+        self.assertIn("no_machine", statuses.values())
+
     def test_example_inventory_and_projects_resolve(self):
         parts = advisor.DEFAULT_PARTS
         if not (parts / "data").exists():

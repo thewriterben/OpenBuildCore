@@ -9,7 +9,14 @@
     { "part_id": "electronic/bme280", "qty": 1, "note": "temperature/humidity/pressure" },
     { "part_id": "electronic/ssd1306", "qty": 1, "note": "display" },
     { "part_id": "electronic/r-0603", "qty": 2, "note": "I2C pull-ups, 4.7k" },
-    { "part_id": "electronic/c-0603", "qty": 2, "note": "decoupling, 100n" }
+    { "part_id": "electronic/c-0603", "qty": 2, "note": "decoupling, 100n" },
+    {
+      "make": "desk-case", "qty": 1,
+      "size_mm": { "x": 78, "y": 52, "z": 24 },
+      "material": "petg",
+      "min_feature_mm": 1.0,
+      "note": "Indoor desk enclosure with a window for the OLED and a vent slot over the BME280 - a sealed box measures its own waste heat rather than the room. Nothing here is a design output: real dimensions come from an OpenDesignCore run, and machines.py can-print --from-sidecar judges those instead of these."
+    }
   ],
   "related_designs": [
     "OpenCircuitCore boards/reference-esp32s3 (the sensor subcircuit is this project's electronics)"

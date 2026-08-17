@@ -8,7 +8,13 @@
     { "capability": "analog_read", "qty": 3, "note": "one per node — resistive or capacitive probe" },
     { "capability": "battery", "qty": 3, "note": "battery management, one per node" },
     { "capability": "wifi", "qty": 1, "note": "the base that collects" },
-    { "part_id": "electronic/c-0603", "qty": 9 }
+    { "part_id": "electronic/c-0603", "qty": 9 },
+    {
+      "make": "probe-stake", "qty": 3,
+      "size_mm": { "x": 24, "y": 18, "z": 260 },
+      "material": "petg",
+      "note": "One per node: holds the probe at a repeatable depth so readings compare between nodes. 260 mm because shallower gives topsoil moisture, which tracks the last rain rather than the root zone. Deliberately taller than a common 250 mm gantry - it is the case where the machine, not the parts drawer, is what stops you."
+    }
   ],
   "related_designs": []
 }

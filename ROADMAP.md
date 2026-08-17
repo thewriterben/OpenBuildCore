@@ -12,7 +12,7 @@
 - [x] MCP surface, following OpenDesignCore ADR-0009: reads and matching execute, nothing here reaches a fabricator (2026-08-15)
 - [ ] **Replace the K2 Plus placeholder envelope.** `envelope_mm` is `1x1x1` and marked `TODO(source)`; every fit check on that machine fails until someone measures the bed or cites the manual.
 - [x] Take a part's bounding box from an OpenDesignCore artifact rather than a `--size` string typed by hand — `can-print --from-sidecar` reads `artifact.bbox_mm` and `volume_cubic_mm` (ODC ADR-0010); the peers meet at the provenance record, not at an API (2026-08-16)
-- [ ] Projects declare the parts they need *made*, not only bought, so `what-can-i-build` can consult machines instead of leaving the physical half unanswered
+- [x] Projects declare the parts they need *made*, not only bought — a third requirement kind, judged against machines, reported separately from shopping gaps because the two are fixed differently (ADR-0006) (2026-08-16)
 - [ ] Live pricing on the shopping list, keyed by part id (distributor APIs)
 - [ ] "What should I build?" ranking — order buildable projects by how much of the inventory they use, or by fewest missing parts
 - [ ] Inventory capture assist: photograph a drawer, identify parts (ClawCam-adjacent vision already exists in the ecosystem)
@@ -21,6 +21,8 @@
 - Backtracking allocation (see ADR-0002 — greedy is honest but not optimal)
 - Non-axis-aligned fit. Six orientations will report false negatives on parts needing a diagonal; overruling that is a slicer's or a human's job for now (ADR-0005).
 - Machine capabilities beyond FDM: resin, CNC and laser have constraints this model does not carry. Add them when a real machine needs them, not before.
+- A fourth requirement kind (salvage from something you already own, say). Three is the ceiling until a real case argues otherwise — ADR-0006.
+- Linking a project's `make` requirement to a specific OpenDesignCore model, so the size comes from a design rather than the author's intent. Today the two paths are separate on purpose: the project figure is what you check *before* you have a design, `can-print --from-sidecar` is what you check after.
 - Project dependency graphs (project A produces a part used by project B)
 - Multi-owner or shared inventories
 

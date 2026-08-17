@@ -52,6 +52,17 @@ def _load():
     return registry, owned, projects
 
 
+def _machines_or_none():
+    """None when the user has declared no machines.
+
+    Passed straight through to the advisor, where it becomes "unknown" rather
+    than "cannot". An agent must not conclude a part is unmakeable because
+    nobody has written down what they own.
+    """
+    path = Path(os.getenv("OBC_MACHINES", str(machines_lib.DEFAULT_MACHINES)))
+    return machines_lib.load_machines(path) if path.exists() else None
+
+
 @server.tool()
 def inventory() -> list:
     """What the user owns: part ids, quantities, names and capabilities.
@@ -88,24 +99,37 @@ def list_projects() -> list:
 
 @server.tool()
 def what_can_i_build() -> list:
-    """Evaluate every project against the inventory.
+    """Evaluate every project against the inventory and the user's machines.
 
     Allocation is exclusive: one unit of one part satisfies at most one
     requirement, so a single board cannot be both nodes of a two-node mesh.
+
+    Each result carries **two** booleans, and they must not be collapsed:
+    `buildable` is a shopping question, `makeable` is about the machines in
+    the room. A project short a LoRa radio is fixed by buying one; a project
+    needing a 260 mm bracket on a 220 mm bed is not fixed by buying anything.
+    `makeable` is null when the user has declared no machines - that is
+    "unknown", never "cannot".
     """
     registry, owned, projects = _load()
-    return [advisor.evaluate(project, owned, registry) for project in projects]
+    machines = _machines_or_none()
+    return [advisor.evaluate(p, owned, registry, machines) for p in projects]
 
 
 @server.tool()
 def gaps(project_id: str) -> dict:
-    """What a specific project is missing, with registry-derived suggestions."""
+    """What a specific project is missing, with registry-derived suggestions.
+
+    Parts to be made appear under `fabricate`, not under `gaps`, because they
+    cannot be bought. Reporting one as a shortfall would put it on a shopping
+    list where it would sit unbought forever.
+    """
     registry, owned, projects = _load()
     match = next((p for p in projects if p["id"] == project_id), None)
     if match is None:
         known = ", ".join(p["id"] for p in projects)
         raise ValueError(f"unknown project '{project_id}'. Known: {known}")
-    return advisor.evaluate(match, owned, registry)
+    return advisor.evaluate(match, owned, registry, _machines_or_none())
 
 
 @server.tool()
@@ -116,6 +140,9 @@ def shopping_list(project_ids: str = "", simultaneous: bool = False) -> dict:
     builds reuse parts so the quantity is the worst single shortfall, while
     simultaneous builds sum. The basis is returned so a caller never has to
     infer which question was answered.
+
+    Parts to be made are absent by construction: nobody sells them, and
+    listing one would read as an ordering oversight.
     """
     registry, owned, projects = _load()
     chosen = projects
@@ -126,7 +153,8 @@ def shopping_list(project_ids: str = "", simultaneous: bool = False) -> dict:
         if unknown:
             raise ValueError(f"unknown project(s): {', '.join(sorted(unknown))}")
 
-    results = [advisor.evaluate(project, owned, registry) for project in chosen]
+    machines = _machines_or_none()
+    results = [advisor.evaluate(p, owned, registry, machines) for p in chosen]
     return {
         "basis": "simultaneous" if simultaneous else "sequential",
         "items": advisor.shopping_list(results, simultaneous),

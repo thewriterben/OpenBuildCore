@@ -18,6 +18,10 @@ Machines get the same treatment for a different reason. Their fields are
 physical claims about hardware, so an uncited capability or a throughput with
 no `how_measured` is a recalled number that will be read as a measurement.
 
+Made parts (`make`) are checked for shape only, never against owned machines:
+projects are shareable, machines are personal, and a project's validity must
+not depend on who is reading it.
+
 Stdlib only; the JSON Schema files are the authoritative shape definition for
 tooling that can consume them.
 """
@@ -33,6 +37,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ID_RE = re.compile(r"^(boards|electronic|mechanical|material)/[a-z0-9][a-z0-9._-]*$")
 PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 MACHINE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+MAKE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 DIFFICULTIES = {"beginner", "intermediate", "advanced"}
 
 
@@ -81,13 +86,16 @@ def check_project(path: Path, ids: set, capabilities: set) -> list:
         where = f"requires[{index}]"
         has_part = "part_id" in requirement
         has_cap = "capability" in requirement
-        if has_part == has_cap:
-            bad(f"{where}: needs exactly one of part_id or capability")
+        has_make = "make" in requirement
+        if sum((has_part, has_cap, has_make)) != 1:
+            bad(f"{where}: needs exactly one of part_id, capability or make")
             continue
         if requirement.get("qty", 1) < 1:
             bad(f"{where}: qty must be >= 1")
 
-        if has_part:
+        if has_make:
+            errors.extend(check_made_part(path, where, requirement))
+        elif has_part:
             part_id = requirement["part_id"]
             if not ID_RE.match(part_id):
                 bad(f"{where}: malformed part_id '{part_id}'")
@@ -100,6 +108,48 @@ def check_project(path: Path, ids: set, capabilities: set) -> list:
             if capability not in capabilities:
                 bad(f"{where}: capability '{capability}' is provided by no registry "
                     "part, so this project is unbuildable by construction")
+    return errors
+
+
+def check_made_part(path: Path, where: str, requirement: dict) -> list:
+    """A made part is checked for shape only, never against owned machines.
+
+    Projects are shareable; machines are personal. A project needing ASA is a
+    perfectly valid project for someone with no ASA-capable printer -- that is
+    a capability gap the advisor reports, not an error in the file. Validating
+    against machines would make a project's validity depend on who is reading
+    it.
+
+    What is checked: a size that can be compared to a build volume, and a
+    declared material. A made part with no material cannot be judged at all,
+    and defaulting one would be inventing a design decision.
+    """
+    errors = []
+
+    def bad(message: str) -> None:
+        errors.append(f"{path.name}: {where}: {message}")
+
+    if not MAKE_ID_RE.match(requirement.get("make", "")):
+        bad(f"malformed make name '{requirement.get('make')}'")
+
+    size = requirement.get("size_mm")
+    if not isinstance(size, dict):
+        bad("needs size_mm {x, y, z} in mm; without it there is nothing to "
+            "compare against a build volume")
+    else:
+        for axis in ("x", "y", "z"):
+            value = size.get(axis)
+            if not isinstance(value, (int, float)) or value <= 0:
+                bad(f"size_mm.{axis} must be a number > 0")
+
+    if not requirement.get("material"):
+        bad("needs a material: a made part with no material cannot be checked "
+            "against a machine, and defaulting one would invent a design decision")
+
+    floor = requirement.get("min_feature_mm")
+    if floor is not None and (not isinstance(floor, (int, float)) or floor <= 0):
+        bad("min_feature_mm must be a number > 0 when present; absent means "
+            "unchecked, which is not the same as zero")
     return errors
 
 
