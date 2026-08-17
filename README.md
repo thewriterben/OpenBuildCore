@@ -64,8 +64,8 @@ python scripts/machines.py can-print --size 40x30x12 --material petg --volume-mm
 ```
 
 ```
-[CANNOT] Creality K2 Plus  (k2-plus)
-    NO   does not fit: part 40.0 x 30.0 x 12.0 mm vs envelope 1 x 1 x 1 mm, in any axis-aligned orientation
+[CAN PRINT] Creality K2 Plus  (k2-plus)
+    ok   fits as modelled (40.0 x 30.0 x 12.0 mm)
     time unknown: no measured throughput on this machine - print time requires slicing
 
 [CAN PRINT] Example Bench FDM  (example-bench-fdm)
@@ -73,10 +73,14 @@ python scripts/machines.py can-print --size 40x30x12 --material petg --volume-mm
     time ~0.6 h - pre-slicing triage only: bulk volume over one measured rate, ...
 ```
 
-That first result is the design working, not failing. The K2 Plus record's build
-volume is a `1x1x1` placeholder marked `TODO(source)` because it isn't in the
-cited material, so every fit check on it fails loudly rather than passing on a
-guessed number. Fill in a measured envelope and it starts answering.
+The K2 fits it and still won't estimate a time, because those are separate
+facts and only one of them has a source. Its envelope (350 × 350 × 350 mm) is
+cited to Creality Print's own machine profile; nobody has timed a print on it.
+
+That envelope was a `1×1×1` `TODO(source)` placeholder for a day, and every fit
+check on the machine failed loudly during that time. That is the intended
+behaviour of a placeholder: it blocks until a real source turns up, rather than
+letting a number recalled from memory look like a measurement.
 
 **Print time is never modelled.** A machine gets a time estimate only if its
 record carries a throughput its owner measured and says how they measured it.

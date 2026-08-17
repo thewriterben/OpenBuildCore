@@ -10,9 +10,11 @@
 ## Next
 - [x] Shopping list: gaps -> one buyable list, deduplicated across projects, with an explicit sequential/simultaneous basis (ADR-0004) (2026-08-15)
 - [x] MCP surface, following OpenDesignCore ADR-0009: reads and matching execute, nothing here reaches a fabricator (2026-08-15)
-- [ ] **Replace the K2 Plus placeholder envelope.** `envelope_mm` is `1x1x1` and marked `TODO(source)`; every fit check on that machine fails until someone measures the bed or cites the manual.
+- [x] **Replace the K2 Plus placeholder envelope** — 350 × 350 × 350 mm, cited to Creality Print 7.2's own machine profile (`printable_area` / `printable_height`) rather than measured or recalled. The `TODO(source)` did its job: it blocked every fit check until a real source turned up (2026-08-16)
 - [x] Take a part's bounding box from an OpenDesignCore artifact rather than a `--size` string typed by hand — `can-print --from-sidecar` reads `artifact.bbox_mm` and `volume_cubic_mm` (ODC ADR-0010); the peers meet at the provenance record, not at an API (2026-08-16)
 - [x] Projects declare the parts they need *made*, not only bought — a third requirement kind, judged against machines, reported separately from shopping gaps because the two are fixed differently (ADR-0006) (2026-08-16)
+- [ ] **Measure a K2 Plus throughput.** The envelope is now sourced; the throughput is not, so the machine Benji owns still answers "requires slicing" for every time question. Needs one timed print and an honest `how_measured`.
+- [ ] Reserve the slicer's purge/wipe region in the fit check. `printable_area` is the full bed; a part filling it exactly may still fail in the slicer. Currently noted in the machine record rather than modelled.
 - [ ] Live pricing on the shopping list, keyed by part id (distributor APIs)
 - [ ] "What should I build?" ranking — order buildable projects by how much of the inventory they use, or by fewest missing parts
 - [ ] Inventory capture assist: photograph a drawer, identify parts (ClawCam-adjacent vision already exists in the ecosystem)

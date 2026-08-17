@@ -242,24 +242,40 @@ class MadePartTests(unittest.TestCase):
 
 
 class ShippedDataTests(unittest.TestCase):
-    def test_shipped_made_parts_exercise_both_outcomes(self):
-        """The catalogue must not only contain parts the example machine can
-        make, or the negative path ships untested."""
-        projects = {p["id"]: p for p in
-                    advisor.load_projects(advisor.ROOT / "data" / "projects")}
+    def test_shipped_made_parts_exercise_every_blocker_kind(self):
+        """The catalogue must not only contain parts every machine can make,
+        or the negative paths ship untested.
+
+        This originally required a globally unmakeable part, which held while
+        the K2's envelope was an unsourced 1x1x1 placeholder. Once the real
+        350 mm cubed envelope was found in Creality Print's own profile,
+        nothing in the catalogue was unmakeable *everywhere* - a 350 mm
+        printer makes most hobby parts. Inventing a project purely to fail
+        would be data that serves the test rather than the user.
+
+        So the invariant is stated where it actually lives: shipped parts must
+        still exercise both kinds of refusal on some machine. The 260 mm probe
+        stake exceeds the bench's 250 mm gantry; the ASA housing exceeds its
+        materials. Both are real constraints, not contrivances.
+        """
+        projects = advisor.load_projects(advisor.ROOT / "data" / "projects")
         machines = machines_lib.load_machines(
             advisor.ROOT / "example" / "machines.json")
         registry = {"boards/mcu": REGISTRY["boards/mcu"]}
 
-        statuses = {}
-        for pid, project in projects.items():
-            result = advisor.evaluate(project, {}, registry, machines)
-            for made in result["fabricate"]:
-                statuses[f"{pid}:{made['make']}"] = made["status"]
+        statuses, blockers = [], []
+        for project in projects:
+            for made in advisor.evaluate(project, {}, registry, machines)["fabricate"]:
+                statuses.append(made["status"])
+                for verdict in made["machines"]:
+                    blockers.extend(verdict["blockers"])
 
         self.assertTrue(statuses, "no shipped project declares a part to be made")
-        self.assertIn("makeable", statuses.values())
-        self.assertIn("no_machine", statuses.values())
+        self.assertIn("makeable", statuses)
+        self.assertTrue(any("does not fit" in b for b in blockers),
+                        "no shipped part exercises a size blocker")
+        self.assertTrue(any("cannot run" in b for b in blockers),
+                        "no shipped part exercises a material blocker")
 
     def test_example_inventory_and_projects_resolve(self):
         parts = advisor.DEFAULT_PARTS
