@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "openbuildcore/project.schema.json",
   "title": "Project",
-  "description": "Something a person could build. Requirements are either a specific part or a capability any part may provide, each with a quantity.",
+  "description": "Something a person could build. A requirement is exactly one of three kinds: a specific part, a capability any part may provide, or a part to be MADE rather than bought. The third fails differently from the other two - shopping cannot fix a bed that is too small - so it is a separate kind rather than a part_id nobody sells.",
   "type": "object",
   "required": ["schema_version", "id", "name", "description", "requires"],
   "properties": {
@@ -17,8 +17,9 @@
       "items": {
         "type": "object",
         "oneOf": [
-          { "required": ["part_id"], "not": { "required": ["capability"] } },
-          { "required": ["capability"], "not": { "required": ["part_id"] } }
+          { "required": ["part_id"] },
+          { "required": ["capability"] },
+          { "required": ["make", "size_mm", "material"] }
         ],
         "properties": {
           "part_id": {
@@ -29,6 +30,31 @@
           "capability": {
             "type": "string",
             "description": "A capability token. Must be provided by at least one registry part, or the project can never be built."
+          },
+          "make": {
+            "type": "string",
+            "description": "Name of a part to be fabricated rather than bought. Checked against the machines the user owns, not against the registry.",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "size_mm": {
+            "type": "object",
+            "description": "Bounding box of the part to be made, mm. Declared by the project author as a design intent; a real design's dimensions come from an OpenDesignCore provenance record instead.",
+            "required": ["x", "y", "z"],
+            "properties": {
+              "x": { "type": "number", "exclusiveMinimum": 0 },
+              "y": { "type": "number", "exclusiveMinimum": 0 },
+              "z": { "type": "number", "exclusiveMinimum": 0 }
+            },
+            "additionalProperties": false
+          },
+          "material": {
+            "type": "string",
+            "description": "Material token the part must be made in, e.g. petg. Required: a made part with no material cannot be checked against a machine, and defaulting one would be inventing a design decision."
+          },
+          "min_feature_mm": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Smallest feature the part depends on. Checked against the machine's floor when declared; absent means unchecked, not zero."
           },
           "qty": { "type": "integer", "minimum": 1 },
           "note": { "type": "string" }

@@ -9,7 +9,14 @@
     { "capability": "nn_accel", "qty": 1, "note": "on-device inference; the whole point" },
     { "capability": "wifi", "qty": 1, "note": "upload only the frames worth uploading" },
     { "capability": "microsd", "qty": 1, "note": "buffer when the link is down" },
-    { "part_id": "electronic/c-0603", "qty": 6 }
+    { "part_id": "electronic/c-0603", "qty": 6 },
+    {
+      "make": "weatherproof-housing", "qty": 1,
+      "size_mm": { "x": 95, "y": 70, "z": 45 },
+      "material": "asa",
+      "min_feature_mm": 1.2,
+      "note": "Lives outdoors year-round. ASA rather than PLA because the part sits in direct sun, and PLA creeps above roughly 60 C. The 1.2 mm floor is the lens shroud lip."
+    }
   ],
   "related_designs": [
     "ClawCam — node firmware, gateway and detection pipeline for exactly this shape of build"

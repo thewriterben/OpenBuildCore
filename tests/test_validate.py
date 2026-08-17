@@ -69,6 +69,55 @@ class ReferentialIntegrityTests(unittest.TestCase):
         errors = validate.check_project(path, IDS, CAPS)
         self.assertTrue(any("exactly one of" in e for e in errors), errors)
 
+    def test_a_made_part_is_a_third_kind_and_is_accepted(self):
+        path = write(self.dir, "thing.json", project(requires=[{
+            "make": "bracket", "size_mm": {"x": 40, "y": 30, "z": 12},
+            "material": "petg", "qty": 1,
+        }]))
+        self.assertEqual(validate.check_project(path, IDS, CAPS), [])
+
+    def test_a_made_part_alongside_a_part_id_is_rejected(self):
+        path = write(self.dir, "thing.json", project(requires=[{
+            "make": "bracket", "part_id": "boards/mcu",
+            "size_mm": {"x": 1, "y": 1, "z": 1}, "material": "petg",
+        }]))
+        errors = validate.check_project(path, IDS, CAPS)
+        self.assertTrue(any("exactly one of" in e for e in errors), errors)
+
+    def test_a_made_part_without_a_material_is_rejected(self):
+        """It could not be checked against a machine at all, and defaulting a
+        material would invent a design decision."""
+        path = write(self.dir, "thing.json", project(requires=[{
+            "make": "bracket", "size_mm": {"x": 40, "y": 30, "z": 12},
+        }]))
+        errors = validate.check_project(path, IDS, CAPS)
+        self.assertTrue(any("needs a material" in e for e in errors), errors)
+
+    def test_a_made_part_without_a_size_is_rejected(self):
+        path = write(self.dir, "thing.json", project(requires=[{
+            "make": "bracket", "material": "petg",
+        }]))
+        errors = validate.check_project(path, IDS, CAPS)
+        self.assertTrue(any("size_mm" in e for e in errors), errors)
+
+    def test_a_made_part_with_a_zero_axis_is_rejected(self):
+        path = write(self.dir, "thing.json", project(requires=[{
+            "make": "bracket", "material": "petg",
+            "size_mm": {"x": 40, "y": 0, "z": 12},
+        }]))
+        errors = validate.check_project(path, IDS, CAPS)
+        self.assertTrue(any("size_mm.y" in e for e in errors), errors)
+
+    def test_a_made_part_is_not_checked_against_owned_machines(self):
+        """Projects are shareable, machines are personal. A project needing ASA
+        is valid for someone with no ASA-capable printer; that is a capability
+        gap the advisor reports, not an error in the file."""
+        path = write(self.dir, "thing.json", project(requires=[{
+            "make": "housing", "material": "unobtainium",
+            "size_mm": {"x": 9000, "y": 9000, "z": 9000},
+        }]))
+        self.assertEqual(validate.check_project(path, IDS, CAPS), [])
+
     def test_id_must_match_filename(self):
         path = write(self.dir, "other.json", project())
         errors = validate.check_project(path, IDS, CAPS)

@@ -5,10 +5,21 @@
     python scripts/advisor.py gaps <project-id> [--inventory F] [--parts DIR]
     python scripts/advisor.py inventory [--inventory F] [--parts DIR]
 
-Requirements are either a specific part (`part_id`) or a capability any part
-may provide (`capability`), each with a quantity. Allocation is exclusive:
+A requirement is exactly one of three kinds:
+
+* `part_id`     -- a specific part, which must resolve in OpenPartsCore
+* `capability`  -- any part providing it will do
+* `make`        -- a part to be FABRICATED rather than bought
+
+The first two are a shopping question and share one exclusive allocation:
 one unit of one part satisfies at most one requirement, so a single ESP32
 cannot simultaneously be the camera node and the display node.
+
+The third is a different question and gets a different answer. A project
+short a LoRa radio can be fixed by buying one; a project needing a 260 mm
+bracket on a 220 mm bed cannot be fixed by buying anything. So made parts
+are judged against the machines you own (ADR-0005), reported separately, and
+kept off the shopping list -- see ADR-0006.
 
 Suggestions for a missing capability are found by *searching the registry*,
 not from a hand-maintained list -- see DECISIONS.md ADR-0002.
@@ -19,6 +30,9 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import machines as machines_lib  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PARTS = ROOT.parent / "OpenPartsCore"
@@ -68,18 +82,67 @@ def load_projects(projects_dir: Path) -> list[dict]:
     ]
 
 
-def evaluate(project: dict, owned: dict, registry: dict) -> dict:
+def fabricate(req: dict, machines: list | None) -> dict:
+    """Judge one made part against the machines the user owns.
+
+    Kept apart from the shopping half on purpose. A project short a LoRa radio
+    is a shopping problem; a project needing a 260 mm bracket on a 220 mm bed
+    is not, and no amount of buying fixes it. Collapsing both into "missing"
+    would put an unmakeable part on a shopping list, where it would sit
+    unbought forever looking like an ordering oversight.
+
+    No machines declared means UNKNOWN, not "cannot". The same rule as an
+    undeclared scanner accuracy in OpenDesignCore: absence of evidence is
+    recorded as absence, never as a negative finding.
+    """
+    record = {
+        "make": req["make"],
+        "size_mm": req["size_mm"],
+        "material": req["material"],
+        "qty": int(req.get("qty", 1)),
+        "note": req.get("note", ""),
+    }
+    if machines is None:
+        record["status"] = "unknown"
+        record["reason"] = (
+            "no machines declared - cannot say whether this can be made. "
+            "Add machines.json, or see machines.py."
+        )
+        record["machines"] = []
+        return record
+
+    size = (req["size_mm"]["x"], req["size_mm"]["y"], req["size_mm"]["z"])
+    verdicts = [
+        machines_lib.evaluate(
+            machine, size, req["material"], req.get("min_feature_mm"), None)
+        for machine in machines
+    ]
+    capable = [v for v in verdicts if v["can_print"]]
+    record["status"] = "makeable" if capable else "no_machine"
+    record["machines"] = verdicts
+    return record
+
+
+def evaluate(project: dict, owned: dict, registry: dict,
+             machines: list | None = None) -> dict:
     """Allocate owned parts to a project's requirements, exclusively.
 
     Specific-part requirements are settled first: they have exactly one way to
     be satisfied, so letting a capability requirement consume that stock first
     could report a false gap.
+
+    Made parts are evaluated separately against `machines` and never enter the
+    parts allocation or the shopping list - see fabricate().
     """
     remaining = dict(owned)
-    satisfied, gaps = [], []
+    satisfied, gaps, fabricated = [], [], []
+
+    to_make = [r for r in project.get("requires", []) if r.get("make")]
+    for req in to_make:
+        fabricated.append(fabricate(req, machines))
 
     requirements = sorted(
-        project.get("requires", []),
+        (r for r in project.get("requires", []) if not r.get("make")),
         key=lambda r: 0 if r.get("part_id") else 1,
     )
 
@@ -119,12 +182,26 @@ def evaluate(project: dict, owned: dict, registry: dict) -> dict:
             record["suggestions"] = suggest(req, registry, owned)
             gaps.append(record)
 
+    # Two booleans, not one, because they fail differently and are fixed
+    # differently: `buildable` is a shopping question, `makeable` is a
+    # question about the machines in the room. A project with no made parts
+    # is makeable vacuously; one with made parts and no declared machines is
+    # None, which is "unknown" and is not treated as a failure.
+    if not fabricated:
+        makeable = True
+    elif any(f["status"] == "unknown" for f in fabricated):
+        makeable = None
+    else:
+        makeable = all(f["status"] == "makeable" for f in fabricated)
+
     return {
         "project": project["id"],
         "name": project["name"],
         "buildable": not gaps,
+        "makeable": makeable,
         "satisfied": satisfied,
         "gaps": gaps,
+        "fabricate": fabricated,
     }
 
 
@@ -194,9 +271,19 @@ def render_shopping(items: list, simultaneous: bool) -> None:
         print()
 
 
+def status_of(result: dict) -> str:
+    """One label, but never one that hides which half failed."""
+    if not result["buildable"]:
+        return "MISSING PARTS" if result["makeable"] is not False else "BLOCKED"
+    if result["makeable"] is False:
+        return "NO MACHINE"
+    if result["makeable"] is None:
+        return "PARTS OK, MACHINES UNKNOWN"
+    return "BUILDABLE"
+
+
 def render(result: dict) -> None:
-    mark = "BUILDABLE" if result["buildable"] else "MISSING PARTS"
-    print(f"[{mark}] {result['name']}  ({result['project']})")
+    print(f"[{status_of(result)}] {result['name']}  ({result['project']})")
     for item in result["satisfied"]:
         using = ", ".join(f"{a['qty']}x {a['part_id']}" for a in item["allocated"])
         print(f"    ok   {item['requirement']:<34} <- {using}")
@@ -208,6 +295,28 @@ def render(result: dict) -> None:
         )
         for suggestion in gap["suggestions"]:
             print(f"           consider {suggestion['part_id']} - {suggestion['name']}")
+    for made in result["fabricate"]:
+        size = made["size_mm"]
+        label = f"make:{made['make']}"
+        dims = f"{size['x']} x {size['y']} x {size['z']} mm, {made['material']}"
+        qty = f" x{made['qty']}" if made["qty"] > 1 else ""
+
+        if made["status"] == "makeable":
+            capable = [m for m in made["machines"] if m["can_print"]]
+            print(f"    ok   {label:<34} {dims}{qty}")
+            for verdict in capable[:2]:
+                note = verdict["notes"][0] if verdict["notes"] else ""
+                print(f"           {verdict['machine_id']} can make it - {note}")
+        elif made["status"] == "unknown":
+            print(f"    ?    {label:<34} {dims}{qty}")
+            print(f"           {made['reason']}")
+        else:
+            print(f"    NO   {label:<34} {dims}{qty}")
+            for verdict in made["machines"]:
+                for blocker in verdict["blockers"]:
+                    print(f"           {verdict['machine_id']}: {blocker}")
+            print("           Not a shopping problem: no machine you own can "
+                  "make this, so it is absent from the shopping list.")
 
 
 def main() -> int:
@@ -219,6 +328,11 @@ def main() -> int:
     parser.add_argument("project", nargs="?", default=None)
     parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
     parser.add_argument("--parts", type=Path, default=DEFAULT_PARTS)
+    parser.add_argument(
+        "--machines", type=Path, default=machines_lib.DEFAULT_MACHINES,
+        help="machines you own; made parts are checked against these. Absent "
+             "means made parts report 'unknown', never 'cannot'.",
+    )
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument(
         "--for", dest="for_projects", default=None,
@@ -234,6 +348,8 @@ def main() -> int:
     registry = load_registry(args.parts)
     owned = load_inventory(args.inventory, registry)
     projects = load_projects(ROOT / "data" / "projects")
+    machines = (machines_lib.load_machines(args.machines)
+                if args.machines.exists() else None)
 
     if args.command == "inventory":
         payload = [
@@ -259,11 +375,12 @@ def main() -> int:
             print(f"unknown project '{args.project}'. Known: "
                   + ", ".join(p["id"] for p in projects), file=sys.stderr)
             return 2
-        result = evaluate(match, owned, registry)
+        result = evaluate(match, owned, registry, machines)
         print(json.dumps(result, indent=2) if args.json else "", end="")
         if not args.json:
             render(result)
-        return 0 if result["buildable"] else 1
+        # Unknown does not fail: absence of declared machines is not a finding.
+        return 0 if result["buildable"] and result["makeable"] is not False else 1
 
     if args.command == "shopping-list":
         chosen = projects
@@ -274,7 +391,7 @@ def main() -> int:
             if unknown:
                 print(f"unknown project(s): {', '.join(sorted(unknown))}", file=sys.stderr)
                 return 2
-        results = [evaluate(p, owned, registry) for p in chosen]
+        results = [evaluate(p, owned, registry, machines) for p in chosen]
         items = shopping_list(results, args.simultaneous)
         if args.json:
             print(json.dumps(
@@ -284,16 +401,26 @@ def main() -> int:
             render_shopping(items, args.simultaneous)
         return 0
 
-    results = [evaluate(p, owned, registry) for p in projects]
+    results = [evaluate(p, owned, registry, machines) for p in projects]
     if args.json:
         print(json.dumps(results, indent=2))
         return 0
-    buildable = [r for r in results if r["buildable"]]
-    blocked = [r for r in results if not r["buildable"]]
-    for result in buildable + blocked:
+    ready = [r for r in results if r["buildable"] and r["makeable"] is not False]
+    blocked = [r for r in results if r not in ready]
+    for result in ready + blocked:
         render(result)
         print()
-    print(f"{len(buildable)} of {len(results)} project(s) buildable from this inventory.")
+
+    print(f"{len(ready)} of {len(results)} project(s) ready from this inventory.")
+    stuck = [r for r in results if r["buildable"] and r["makeable"] is False]
+    if stuck:
+        # Said separately because the fix is different in kind: these are not
+        # short a part anyone sells.
+        print(f"{len(stuck)} have every part but no machine that can make "
+              "their custom pieces: " + ", ".join(r["project"] for r in stuck))
+    if machines is None and any(r["fabricate"] for r in results):
+        print("No machines declared, so parts to be made are reported as "
+              "unknown rather than judged. See example/machines.json.")
     return 0
 
 
