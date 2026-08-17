@@ -109,13 +109,37 @@ class ShippedMachinesTests(unittest.TestCase):
         self.machines = machines.load_machines(ROOT / "example" / "machines.json")
         self.by_id = {m["machine_id"]: m for m in self.machines}
 
-    def test_k2_plus_placeholder_envelope_fails_loudly(self):
-        """envelope_mm is TODO(source) at 1x1x1: nothing may pass a fit check."""
-        k2 = self.by_id["k2-plus"]
-        self.assertIn("TODO(source)", k2["source"]["citation"])
-        result = machines.evaluate(k2, (40, 30, 12), "petg", None, 9000)
+    def test_a_placeholder_envelope_still_fails_loudly(self):
+        """The K2's envelope was a 1x1x1 TODO(source) until it was found in
+        Creality Print's own machine profile. The behaviour that placeholder
+        protected still matters for the next uncited machine, so it is pinned
+        against a synthetic one rather than lost with the data that prompted
+        it."""
+        placeholder = dict(
+            self.by_id["k2-plus"],
+            machine_id="unmeasured",
+            envelope_mm={"x": 1, "y": 1, "z": 1},
+            source={"citation": "TODO(source): nobody has measured this bed."},
+        )
+        result = machines.evaluate(placeholder, (40, 30, 12), "petg", None, 9000)
         self.assertFalse(result["can_print"])
         self.assertIn("does not fit", result["blockers"][0])
+
+    def test_the_k2_envelope_is_now_cited_and_usable(self):
+        """350 x 350 x 350 from resources/profiles/Creality/machine/
+        'Creality K2 Plus 0.4 nozzle.json' - printable_area and
+        printable_height, the vendor's own profile for this exact machine."""
+        k2 = self.by_id["k2-plus"]
+        self.assertEqual({"x": 350, "y": 350, "z": 350}, k2["envelope_mm"])
+        self.assertNotIn("TODO(source)", k2["source"]["citation"])
+        self.assertIn("Creality Print", k2["source"]["citation"])
+        self.assertTrue(
+            machines.evaluate(k2, (40, 30, 12), "petg", None, 9000)["can_print"])
+
+    def test_the_k2_still_offers_no_time(self):
+        """A real envelope does not imply a measured throughput. The two are
+        separate facts and only one of them has been sourced."""
+        self.assertIsNone(self.by_id["k2-plus"]["measured_throughput"])
 
     def test_k2_plus_offers_no_time_despite_a_volume(self):
         result = machines.evaluate(self.by_id["k2-plus"], (1, 1, 1), None, None, 9000)
@@ -232,9 +256,14 @@ class SidecarTests(unittest.TestCase):
         self.assertTrue(bench["can_print"])
         self.assertTrue(bench["time"]["known"], "volume came from the sidecar, not a flag")
 
+        # The K2's envelope is real now (350 mm cubed, from Creality Print's
+        # own profile), so a 23 x 31 x 6 mm enclosure fits it easily. What is
+        # being checked is that a design's recorded dimensions drive a verdict
+        # at all, not which way the verdict falls.
         k2 = machines.evaluate(shipped["k2-plus"], source["size_mm"],
                                "petg", None, source["volume_mm3"])
-        self.assertFalse(k2["can_print"], "placeholder envelope must still block")
+        self.assertTrue(k2["can_print"])
+        self.assertFalse(k2["time"]["known"], "still no measured throughput")
 
 
 class ParsingTests(unittest.TestCase):

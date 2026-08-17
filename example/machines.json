@@ -11,19 +11,23 @@
       "process": "fdm",
       "driver": "moonraker",
       "tier": 0,
-      "envelope_mm": { "x": 1, "y": 1, "z": 1 },
+      "envelope_mm": { "x": 350, "y": 350, "z": 350 },
       "materials": ["pla", "petg", "abs", "asa", "pc", "pa", "tpu"],
       "constraints": {
         "nozzle_diameter_mm": 0.4,
         "max_nozzle_temp_c": 350,
         "chamber_heated": true,
-        "chamber_max_usable_c": 60
+        "chamber_max_usable_c": 60,
+        "max_layer_height_mm": 0.32,
+        "min_layer_height_mm": 0.08,
+        "nozzle_type": "hardened_steel"
       },
       "measured_throughput": null,
       "source": {
-        "citation": "3DP/AdvancedStudio/docs/Research-Report.md §4.2-4.3, itself citing Creality Wiki (k2-plus chamber-temp) and the Helper-Script K2 Plus wiki: dedicated PTC chamber heater, active control 40-60 C (firmware max_temp 80, 60 usable); max nozzle <= 350 C; handles PLA/PETG/ABS/ASA/PC/PA/TPU plus CF/GF composites. Nozzle diameter 0.4 mm is the stock size assumed throughout that report's calibration guidance. TODO(source): envelope_mm is a PLACEHOLDER of 1x1x1 - the build volume is not stated anywhere in the cited material and is deliberately not recalled from memory. Measure the bed or take it from the manual, then replace. Until then every fit check on this machine will fail loudly rather than pass on a guessed number.",
+        "citation": "envelope_mm, layer heights and nozzle_type: Creality Print 7.2, resources/profiles/Creality/machine/'Creality K2 Plus 0.4 nozzle.json' - printable_area '0x0,350x0,350x350,0x350' and printable_height '350', i.e. 350 x 350 x 350 mm; max_layer_height 0.32, min_layer_height 0.08, nozzle_type hardened_steel. This is the vendor's own slicer profile for this exact machine, read from the installation on this computer. Chamber and material facts: 3DP/AdvancedStudio/docs/Research-Report.md §4.2-4.3, itself citing Creality Wiki (k2-plus chamber-temp) and the Helper-Script K2 Plus wiki - dedicated PTC chamber heater, active control 40-60 C (firmware max_temp 80, 60 usable); max nozzle <= 350 C; handles PLA/PETG/ABS/ASA/PC/PA/TPU plus CF/GF composites. Nozzle diameter 0.4 mm is the stock size assumed throughout that report's calibration guidance and matches the profile variant read above.",
         "url": "https://wiki.creality.com/en/k2-flagship-series/k2-plus/chamber-temp",
-        "retrieved": "2026-08-15"
+        "retrieved": "2026-08-16",
+        "note": "envelope_mm was a 1x1x1 TODO(source) placeholder until 2026-08-16 because the build volume was in none of the material cited at the time. It was replaced from the vendor profile, not from memory. The usable area is the full printable_area; it does not account for the purge/wipe region a slicer may reserve, so a part filling the bed exactly may still fail in the slicer."
       },
       "note": "measured_throughput is null: print time requires slicing. Set it only from a print you actually timed, and say how in how_measured."
     },
