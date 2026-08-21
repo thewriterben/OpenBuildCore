@@ -153,6 +153,51 @@ def check_made_part(path: Path, where: str, requirement: dict) -> list:
     return errors
 
 
+def check_axis_calibration(path: Path, where: str, machine: dict) -> list:
+    """Axis calibration is optional to HAVE and strict once claimed.
+
+    Absent means unknown, which downstream tooling treats as a reason not to
+    write a material compensation into a slicer profile — not as a reason to
+    refuse to measure. That distinction is the whole point: measuring an
+    uncalibrated machine is useful, because the measurement is how you find
+    out it is uncalibrated.
+
+    What is refused is a half-made claim. A date with no residual, or a
+    residual with no method, reads as "calibrated" to anything that checks and
+    means nothing.
+    """
+    errors = []
+    calibration = machine.get("axis_calibration")
+    if calibration is None:
+        return errors
+
+    if not isinstance(calibration, dict):
+        return [f"{path.name}: {where}: axis_calibration must be an object or absent"]
+
+    for axis, entry in calibration.items():
+        if axis not in ("x", "y", "z"):
+            errors.append(f"{path.name}: {where}: axis_calibration has unknown axis '{axis}'")
+            continue
+        at = f"{where}: axis_calibration.{axis}"
+
+        if not isinstance(entry, dict):
+            errors.append(f"{path.name}: {at} must be an object")
+            continue
+        if not entry.get("verified_on"):
+            errors.append(
+                f"{path.name}: {at}: no verified_on. Calibration is perishable — belts "
+                "stretch, pulleys creep — so an undated one is a claim nobody can check.")
+        if not isinstance(entry.get("residual_pct"), (int, float)):
+            errors.append(
+                f"{path.name}: {at}: no residual_pct. Recording a calibration is a claim "
+                "that a measurement happened, and a measurement has a result.")
+        if not entry.get("how_measured"):
+            errors.append(
+                f"{path.name}: {at}: no how_measured. A residual with no method behind it "
+                "is a number somebody could have typed.")
+    return errors
+
+
 def check_inventory(path: Path, ids: set) -> list:
     errors = []
     try:
@@ -217,6 +262,8 @@ def check_machines(path: Path) -> list:
                 f"{path.name}: {where}: no source.citation. Capabilities are physical "
                 "facts about hardware; an uncited one is a guess wearing a number."
             )
+
+        errors.extend(check_axis_calibration(path, where, machine))
 
         throughput = machine.get("measured_throughput")
         if throughput is not None:

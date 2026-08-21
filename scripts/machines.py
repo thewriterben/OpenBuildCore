@@ -227,6 +227,46 @@ def load_sidecar(path: Path) -> dict:
     }
 
 
+def calibration_state(machine: dict) -> dict:
+    """Whether this machine's axes have been verified, and how recently.
+
+    Deliberately three states rather than two. "Unknown" is not "bad": a
+    machine nobody has measured might be perfect, and measuring it is exactly
+    how you would find out. What unknown *does* mean is that a material
+    shrinkage figure taken here would be part material and part machine, filed
+    under the material's name — so tooling declines to write one into a slicer
+    profile, while still recording the measurement. That is OpenDesignCore
+    ADR-0009's line: measuring is fine, writing something that shapes every
+    future print is not.
+    """
+    calibration = machine.get("axis_calibration")
+    if not calibration:
+        return {
+            "state": "unknown",
+            "axes": [],
+            "reason": "no axis calibration recorded. A shrinkage figure measured here would "
+                      "mix material with machine error under the material's name.",
+        }
+
+    verified = sorted(calibration)
+    missing = [a for a in ("x", "y", "z") if a not in calibration]
+    if missing:
+        return {
+            "state": "partial",
+            "axes": verified,
+            "reason": f"axes {', '.join(verified)} verified; {', '.join(missing)} not. "
+                      "A part is measured on all three.",
+        }
+
+    worst = max(abs(float(calibration[a]["residual_pct"])) for a in verified)
+    return {
+        "state": "verified",
+        "axes": verified,
+        "worst_residual_pct": worst,
+        "reason": f"all three axes verified, worst residual {worst:.3f}%.",
+    }
+
+
 def render_list(machines: list) -> None:
     for machine in machines:
         envelope = machine["envelope_mm"]

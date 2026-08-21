@@ -22,6 +22,7 @@
         "min_layer_height_mm": 0.08,
         "nozzle_type": "hardened_steel"
       },
+      "axis_calibration": null,
       "measured_throughput": null,
       "source": {
         "citation": "envelope_mm, layer heights and nozzle_type: Creality Print 7.2, resources/profiles/Creality/machine/'Creality K2 Plus 0.4 nozzle.json' - printable_area '0x0,350x0,350x350,0x350' and printable_height '350', i.e. 350 x 350 x 350 mm; max_layer_height 0.32, min_layer_height 0.08, nozzle_type hardened_steel. This is the vendor's own slicer profile for this exact machine, read from the installation on this computer. Chamber and material facts: 3DP/AdvancedStudio/docs/Research-Report.md §4.2-4.3, itself citing Creality Wiki (k2-plus chamber-temp) and the Helper-Script K2 Plus wiki - dedicated PTC chamber heater, active control 40-60 C (firmware max_temp 80, 60 usable); max nozzle <= 350 C; handles PLA/PETG/ABS/ASA/PC/PA/TPU plus CF/GF composites. Nozzle diameter 0.4 mm is the stock size assumed throughout that report's calibration guidance and matches the profile variant read above.",
@@ -29,7 +30,7 @@
         "retrieved": "2026-08-16",
         "note": "envelope_mm was a 1x1x1 TODO(source) placeholder until 2026-08-16 because the build volume was in none of the material cited at the time. It was replaced from the vendor profile, not from memory. The usable area is the full printable_area; it does not account for the purge/wipe region a slicer may reserve, so a part filling the bed exactly may still fail in the slicer."
       },
-      "note": "measured_throughput is null: print time requires slicing. Set it only from a print you actually timed, and say how in how_measured."
+      "note": "axis_calibration is null: this machine has NOT been verified, and a print on 2026-08-17 showed why it matters. A 40x60x25 calibration block in PLA measured X -0.25% (textbook), Z-span +0.10% (clean) and Y +0.83% - GROWING while X shrank. No material effect moves the in-plane axes in opposite directions, so that is the Y axis, not the filament. Any material shrinkage measured here would be part material and part machine, filed under the material's name. Fix the axis, record the residual, then measure material. measured_throughput is null for a separate reason: print time requires slicing, and it should only ever be set from a print you actually timed."
     },
     {
       "schema_version": 0,
@@ -42,6 +43,25 @@
       "envelope_mm": { "x": 220, "y": 220, "z": 250 },
       "materials": ["pla", "petg"],
       "constraints": { "nozzle_diameter_mm": 0.4, "min_feature_mm": 0.8 },
+      "axis_calibration": {
+        "x": {
+          "verified_on": "2026-08-15",
+          "residual_pct": 0.04,
+          "how_measured": "Illustrative only. calibration-block/0.2 at 40 x 60, digital caliper stated 0.02 mm.",
+          "rotation_distance": 40.012
+        },
+        "y": {
+          "verified_on": "2026-08-15",
+          "residual_pct": -0.03,
+          "how_measured": "Illustrative only. calibration-block/0.2 at 40 x 60, digital caliper stated 0.02 mm.",
+          "rotation_distance": 39.988
+        },
+        "z": {
+          "verified_on": "2026-08-15",
+          "residual_pct": 0.02,
+          "how_measured": "Illustrative only. Z span between the 4 mm shelf and the 25 mm face, so the first-layer offset cancels."
+        }
+      },
       "measured_throughput": {
         "cubic_mm_per_hour": 14000,
         "how_measured": "Illustrative only: a fictional machine's fictional measurement, present so the time path has something to exercise. Do not copy this number onto a real machine.",
