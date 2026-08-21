@@ -202,6 +202,49 @@ class MachineValidationTests(unittest.TestCase):
         errors = self.check(machine(), machine())
         self.assertTrue(any("duplicate machine_id" in e for e in errors), errors)
 
+    def test_an_uncalibrated_machine_is_valid(self):
+        """Absent means unknown, and unknown is not an error. Measuring an
+        uncalibrated machine is how you find out it is uncalibrated — refusing
+        to record one would block the diagnosis."""
+        self.assertEqual(self.check(machine(axis_calibration=None)), [])
+
+    def test_a_calibration_without_a_date_is_rejected(self):
+        """Calibration is perishable. Belts stretch, pulleys creep."""
+        errors = self.check(machine(axis_calibration={
+            "y": {"residual_pct": 0.03, "how_measured": "caliper"}}))
+        self.assertTrue(any("no verified_on" in e for e in errors), errors)
+
+    def test_a_calibration_without_a_residual_is_rejected(self):
+        """Claiming a calibration is claiming a measurement happened, and a
+        measurement has a result."""
+        errors = self.check(machine(axis_calibration={
+            "y": {"verified_on": "2026-08-17", "how_measured": "caliper"}}))
+        self.assertTrue(any("no residual_pct" in e for e in errors), errors)
+
+    def test_a_residual_without_a_method_is_rejected(self):
+        errors = self.check(machine(axis_calibration={
+            "y": {"verified_on": "2026-08-17", "residual_pct": 0.03}}))
+        self.assertTrue(any("no how_measured" in e for e in errors), errors)
+
+    def test_a_zero_residual_is_allowed_but_must_still_be_declared(self):
+        """Zero is suspicious rather than excellent, and the schema says so —
+        but refusing it outright would be the tool overruling a measurement."""
+        self.assertEqual(self.check(machine(axis_calibration={
+            "y": {"verified_on": "2026-08-17", "residual_pct": 0.0,
+                  "how_measured": "block + caliper 0.02 mm"}})), [])
+
+    def test_an_unknown_axis_is_rejected(self):
+        errors = self.check(machine(axis_calibration={
+            "w": {"verified_on": "2026-08-17", "residual_pct": 0.0,
+                  "how_measured": "caliper"}}))
+        self.assertTrue(any("unknown axis 'w'" in e for e in errors), errors)
+
+    def test_a_fully_declared_calibration_passes(self):
+        self.assertEqual(self.check(machine(axis_calibration={
+            "x": {"verified_on": "2026-08-17", "residual_pct": 0.04,
+                  "how_measured": "calibration-block/0.2, caliper 0.02 mm",
+                  "rotation_distance": 40.012}})), [])
+
     def test_missing_field_is_rejected(self):
         doc = machine()
         del doc["materials"]

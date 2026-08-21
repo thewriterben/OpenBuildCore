@@ -49,6 +49,16 @@
       },
       "additionalProperties": false
     },
+    "axis_calibration": {
+      "type": ["object", "null"],
+      "description": "When each axis was last verified true, and what deviation remained. Absent means UNKNOWN, never 'fine'. A material shrinkage figure measured on an uncalibrated machine is a mixture of material and machine error filed under the material's name, so tooling declines to write one into a slicer profile until this exists. Recording it is a claim you made a measurement, not a claim the machine is perfect — a residual is expected and belongs here.",
+      "properties": {
+        "x": { "$ref": "#/$defs/axisCalibration" },
+        "y": { "$ref": "#/$defs/axisCalibration" },
+        "z": { "$ref": "#/$defs/axisCalibration" }
+      },
+      "additionalProperties": false
+    },
     "measured_throughput": {
       "type": ["object", "null"],
       "description": "Only ever a figure the owner measured. Absent means print time cannot be estimated and the answer is 'requires slicing' — a slicer is the only honest source, and a volumetric guess would be an invented number.",
@@ -71,5 +81,32 @@
     },
     "note": { "type": "string" }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "axisCalibration": {
+      "type": "object",
+      "required": ["verified_on", "residual_pct", "how_measured"],
+      "properties": {
+        "verified_on": {
+          "type": "string",
+          "description": "ISO date the axis was last measured. Calibration is perishable — belts stretch, pulleys creep — so a date without a residual is a claim nobody can check."
+        },
+        "residual_pct": {
+          "type": "number",
+          "description": "Deviation still present after correcting, as a percentage of nominal. Zero is suspicious rather than excellent: an instrument has a floor, and a residual reported as exactly zero usually means it was assumed rather than measured."
+        },
+        "how_measured": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What was printed and measured with what, e.g. 'calibration-block/0.2 40x60, digital caliper 0.02 mm'. Without this a residual is a number with no method behind it."
+        },
+        "rotation_distance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "The value set after correcting, if the fix was a firmware change. Recorded so a later drift can be told from a later edit."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }
